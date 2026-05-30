@@ -34,6 +34,7 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: clip;
 }
 
 body {
@@ -43,6 +44,11 @@ body {
     linear-gradient(rgba(255, 249, 239, 0.9), rgba(255, 249, 239, 0.9)),
     var(--bg-diner-page) center top / cover fixed;
   font-family: var(--font-body);
+  overflow-x: clip;
+}
+
+img {
+  max-width: 100%;
 }
 
 .skip-link {
@@ -92,13 +98,19 @@ a {
   text-decoration: none;
 }
 
+#main-content {
+  min-width: 0;
+}
+
 .site-header {
   position: sticky;
   top: 0;
   z-index: 20;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: 10px 12px;
   min-height: 72px;
   padding: 12px 32px;
   border-bottom: 1px solid rgba(17, 17, 17, 0.12);
@@ -119,11 +131,20 @@ a {
 
 .brand {
   gap: 10px;
+  min-width: 0;
+  flex: 1 1 140px;
   font-family: var(--font-display);
   font-size: 30px;
   font-weight: 900;
   letter-spacing: 0;
   text-transform: uppercase;
+}
+
+.brand > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .brand-mark {
@@ -153,6 +174,8 @@ a {
 
 .header-actions {
   gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .icon {
@@ -339,12 +362,12 @@ a {
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(420px, 1.05fr);
-  gap: 30px;
+  grid-template-columns: 1fr;
+  gap: 24px;
   align-items: center;
   min-height: calc(100vh - var(--site-header-height));
   min-height: calc(100svh - var(--site-header-height));
-  padding: 54px 32px 42px;
+  padding: clamp(28px, 5vw, 54px) clamp(16px, 4vw, 32px) 36px;
   background:
     linear-gradient(90deg, rgba(17, 17, 17, 0.88), rgba(17, 17, 17, 0.56)),
     var(--bg-diner-hero) center / cover no-repeat,
@@ -354,7 +377,9 @@ a {
 
 .hero-copy {
   max-width: 620px;
-  justify-self: end;
+  justify-self: stretch;
+  width: 100%;
+  min-width: 0;
 }
 
 .eyebrow,
@@ -439,6 +464,29 @@ h3 {
   border-color: var(--yellow);
 }
 
+@media (min-width: 900px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr);
+    gap: 30px;
+    padding: 54px 32px 42px;
+  }
+
+  .hero-copy {
+    justify-self: end;
+    width: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-food {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-food img:nth-child(2) {
+    margin-bottom: 0;
+  }
+}
+
 .content-section {
   padding: 72px 32px;
   background:
@@ -498,6 +546,7 @@ h3 {
   border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--gray);
+  min-width: 0;
 }
 
 .menu-filters-fields {
@@ -536,7 +585,9 @@ h3 {
 
 .home-carousel-controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   max-width: min(580px, 100%);
   margin: 0 auto;
@@ -1023,18 +1074,18 @@ textarea {
 
 .owner-add-workspace {
   display: grid;
-  grid-template-columns: minmax(280px, 400px) minmax(0, 1fr);
+  grid-template-columns: 1fr;
   gap: clamp(24px, 4vw, 40px);
   align-items: start;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0 max(28px, 4vw) 48px;
+  padding: 0 clamp(16px, 4vw, 28px) 48px;
 }
 
 .owner-add-form-column {
   width: 100%;
   max-width: 420px;
-  padding-left: min(48px, 4vw);
+  padding-left: 0;
 }
 
 .owner-add-form.owner-form {
@@ -1174,14 +1225,19 @@ textarea {
   text-align: center;
 }
 
-@media (max-width: 960px) {
+@media (min-width: 961px) {
   .owner-add-workspace {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(240px, 400px) minmax(0, 1fr);
   }
 
   .owner-add-form-column {
+    padding-left: min(48px, 4vw);
+  }
+}
+
+@media (max-width: 960px) {
+  .owner-add-form-column {
     max-width: none;
-    padding-left: 0;
   }
 
   .owner-add-preview-list {
@@ -1752,7 +1808,9 @@ textarea {
 
 .site-footer {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 24px;
   padding: 34px 32px;
   color: var(--white);
@@ -2356,7 +2414,6 @@ a.drawer-link.active {
   }
 
   .hero {
-    grid-template-columns: 1fr;
     min-height: calc(100vh - var(--site-header-height));
     min-height: calc(100svh - var(--site-header-height));
     padding: 42px 20px 34px;
@@ -2433,6 +2490,13 @@ a.drawer-link.active {
   .menu-row .badge {
     grid-column: 2;
     width: fit-content;
+  }
+
+  .toast-stack {
+    right: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom, 0px));
+    left: 12px;
+    max-width: none;
   }
 }
 
