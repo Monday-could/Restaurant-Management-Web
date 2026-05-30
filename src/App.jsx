@@ -89,6 +89,7 @@ const starterMenu = [
 const initialState = {
   menu: starterMenu,
   orders: [],
+  cart: [],
 };
 
 const modes = [
@@ -100,7 +101,13 @@ const modes = [
 function loadState() {
   try {
     const saved = window.localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : initialState;
+    if (!saved) return initialState;
+    const parsed = JSON.parse(saved);
+    return {
+      menu: Array.isArray(parsed.menu) ? parsed.menu : initialState.menu,
+      orders: Array.isArray(parsed.orders) ? parsed.orders : [],
+      cart: Array.isArray(parsed.cart) ? parsed.cart : [],
+    };
   } catch {
     return initialState;
   }
@@ -161,7 +168,7 @@ function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [pendingOrderItem]);
 
-  const cartCount = state.orders.filter((order) => order.status === "new").length;
+  const cartCount = state.cart.reduce((sum, line) => sum + Number(line.quantity || 1), 0);
 
   function openOrderNoteModal(menuItem) {
     setPendingOrderItem(menuItem);
@@ -173,33 +180,69 @@ function App() {
     setOrderNotesDraft("");
   }
 
-  function submitOrderWithNotes() {
+  function submitAddToCart() {
     if (!pendingOrderItem) return;
-    addOrder(pendingOrderItem, orderNotesDraft);
-    closeOrderNoteModal();
-  }
-
-  function addOrder(menuItem, notesInput) {
-    const trimmed = typeof notesInput === "string" ? notesInput.trim() : "";
+    const trimmed = typeof orderNotesDraft === "string" ? orderNotesDraft.trim() : "";
     const notes = trimmed.length > 0 ? trimmed : "No special request";
     setState((current) => ({
       ...current,
-      orders: [
+      cart: [
         {
-          id: `order-${Date.now()}`,
-          itemId: menuItem.id,
-          itemName: menuItem.name,
-          price: menuItem.price,
+          id: `cart-${Date.now()}`,
+          itemId: pendingOrderItem.id,
+          itemName: pendingOrderItem.name,
+          price: pendingOrderItem.price,
+          image: pendingOrderItem.image,
           quantity: 1,
-          customerName: "Walk-in Guest",
           notes,
-          status: "new",
-          ready: false,
-          createdAt: new Date().toISOString(),
         },
-        ...current.orders,
+        ...current.cart,
       ],
     }));
+    closeOrderNoteModal();
+  }
+
+  function updateCartLineQuantity(lineId, newQuantity) {
+    const q = Math.floor(Number(newQuantity));
+    if (q < 1) {
+      removeCartLine(lineId);
+      return;
+    }
+    setState((current) => ({
+      ...current,
+      cart: current.cart.map((line) => (line.id === lineId ? { ...line, quantity: q } : line)),
+    }));
+  }
+
+  function removeCartLine(lineId) {
+    setState((current) => ({
+      ...current,
+      cart: current.cart.filter((line) => line.id !== lineId),
+    }));
+  }
+
+  function checkoutCart() {
+    setState((current) => {
+      if (!current.cart.length) return current;
+      const ts = Date.now();
+      const newOrders = current.cart.map((line, i) => ({
+        id: `order-${ts}-${i}`,
+        itemId: line.itemId,
+        itemName: line.itemName,
+        price: line.price,
+        quantity: line.quantity,
+        customerName: "Walk-in Guest",
+        notes: line.notes,
+        status: "new",
+        ready: false,
+        createdAt: new Date().toISOString(),
+      }));
+      return {
+        ...current,
+        orders: [...newOrders, ...current.orders],
+        cart: [],
+      };
+    });
   }
 
   function updateOrderStatus(orderId, status) {
@@ -278,8 +321,8 @@ function App() {
           <button
             className="cart-button"
             type="button"
-            aria-label={`${cartCount} new orders`}
-            onClick={() => navigate("/orders")}
+            aria-label={`Shopping cart, ${cartCount} items`}
+            onClick={() => navigate("/cart")}
           >
             <Icon name="cart" />
             <span>{cartCount}</span>
@@ -386,6 +429,17 @@ function App() {
             }
           />
           <Route path="/location" element={<LocationPage />} />
+          <Route
+            path="/cart"
+            element={
+              <CartPage
+                cart={state.cart}
+                onUpdateQuantity={updateCartLineQuantity}
+                onRemoveLine={removeCartLine}
+                onCheckout={checkoutCart}
+              />
+            }
+          />
           <Route path="/profile" element={<ProfilePage orders={state.orders} />} />
           <Route path="/owner" element={<OwnerMode menu={state.menu} onAddMenuItem={addMenuItem} />} />
         </Routes>
@@ -398,6 +452,7 @@ function App() {
         </div>
         <div className="footer-links">
           <Link to="/menu">Menu</Link>
+          <Link to="/cart">Cart</Link>
           <Link to="/location">
             <Icon name="pin" />
             Chicago Demo Store
@@ -419,7 +474,7 @@ function App() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="order-modal-header">
-              <h2 id="order-notes-title">Add order</h2>
+              <h2 id="order-notes-title">Add to cart</h2>
               <button className="icon-button" type="button" aria-label="Close" onClick={closeOrderNoteModal}>
                 <Icon name="x" />
               </button>
@@ -441,8 +496,8 @@ function App() {
               <button className="secondary-cta" type="button" onClick={closeOrderNoteModal}>
                 Cancel
               </button>
-              <button className="primary-cta" type="button" onClick={submitOrderWithNotes}>
-                Submit
+              <button className="primary-cta" type="button" onClick={submitAddToCart}>
+                Add to cart
               </button>
             </div>
           </div>
@@ -457,6 +512,113 @@ function MobileLink({ to, onDone, children }) {
     <NavLink className="drawer-link" to={to} onClick={onDone}>
       {children}
     </NavLink>
+  );
+}
+
+function CartPage({ cart, onUpdateQuantity, onRemoveLine, onCheckout }) {
+  const navigate = useNavigate();
+  const subtotal = useMemo(
+    () => cart.reduce((sum, line) => sum + Number(line.price) * Number(line.quantity || 1), 0),
+    [cart],
+  );
+
+  function handleCheckout() {
+    if (!cart.length) return;
+    onCheckout();
+    navigate("/orders");
+  }
+
+  return (
+    <section className="cart-page content-section page-section" aria-labelledby="cart-title">
+      <div className="section-heading cart-page-intro">
+        <p className="eyebrow">Your tray</p>
+        <h1 id="cart-title">Shopping cart</h1>
+        <p>Items you add from the menu stay here until you check out. Staff only see tickets after checkout.</p>
+      </div>
+
+      {!cart.length ? (
+        <div className="cart-empty-panel">
+          <p className="cart-empty-title">Nothing in your cart yet</p>
+          <p className="cart-empty-copy">Pick dishes from the menu, add notes if you like, then come back here.</p>
+          <Link className="primary-cta" to="/menu">
+            Browse menu
+          </Link>
+        </div>
+      ) : (
+        <div className="cart-layout">
+          <div className="cart-lines-panel">
+            <h2 className="cart-panel-heading">Items</h2>
+            <ul className="cart-line-list">
+              {cart.map((line) => {
+                const lineTotal = Number(line.price) * Number(line.quantity || 1);
+                return (
+                  <li key={line.id} className="cart-line">
+                    <div className="cart-line-thumb">
+                      <img src={line.image} alt="" />
+                    </div>
+                    <div className="cart-line-body">
+                      <div className="cart-line-top">
+                        <h3>{line.itemName}</h3>
+                        <strong className="cart-line-price">{formatPrice(lineTotal)}</strong>
+                      </div>
+                      <p className="cart-line-unit">{formatPrice(line.price)} each</p>
+                      {line.notes && line.notes !== "No special request" ? (
+                        <p className="cart-line-notes">
+                          <span className="cart-notes-label">Note</span> {line.notes}
+                        </p>
+                      ) : null}
+                      <div className="cart-line-controls">
+                        <div className="cart-qty" aria-label="Quantity">
+                          <button
+                            type="button"
+                            className="cart-qty-button"
+                            onClick={() => onUpdateQuantity(line.id, line.quantity - 1)}
+                            aria-label="Decrease quantity"
+                          >
+                            −
+                          </button>
+                          <span className="cart-qty-value">{line.quantity}</span>
+                          <button
+                            type="button"
+                            className="cart-qty-button"
+                            onClick={() => onUpdateQuantity(line.id, line.quantity + 1)}
+                            aria-label="Increase quantity"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <button type="button" className="cart-remove" onClick={() => onRemoveLine(line.id)}>
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          <aside className="cart-summary-panel" aria-labelledby="cart-summary-title">
+            <h2 id="cart-summary-title">Order summary</h2>
+            <dl className="cart-summary-rows">
+              <div className="cart-summary-row">
+                <dt>Items</dt>
+                <dd>{cart.reduce((n, line) => n + Number(line.quantity || 1), 0)}</dd>
+              </div>
+              <div className="cart-summary-row cart-summary-total">
+                <dt>Total</dt>
+                <dd>{formatPrice(subtotal)}</dd>
+              </div>
+            </dl>
+            <p className="cart-demo-note">Payment is skipped in this demo.</p>
+            <button type="button" className="primary-cta cart-checkout-btn" onClick={handleCheckout}>
+              Checkout
+            </button>
+            <p className="cart-checkout-hint">Checkout sends each line to the kitchen as a ticket for staff.</p>
+          </aside>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -574,7 +736,7 @@ function MenuCard({ item, onOrder, onReview }) {
         <div className="card-actions">
           <button className="primary-cta small" type="button" onClick={() => onOrder(item)}>
             <Icon name="plus" />
-            Add Order
+            Add to cart
           </button>
           {onReview && (
             <button className="secondary-cta small" type="button" onClick={() => setReviewOpen(!reviewOpen)}>
@@ -731,7 +893,8 @@ function OrderTicket({ order, children, onReady, hideReadyState = false }) {
         <p className="ticket-meta">{new Date(order.createdAt).toLocaleString()}</p>
         <h3>{order.itemName}</h3>
         <p>
-          {order.quantity} item - {formatPrice(order.price)} - {order.customerName}
+          {order.quantity} × {formatPrice(order.price)} = {formatPrice(Number(order.price) * Number(order.quantity || 1))}{" "}
+          · {order.customerName}
         </p>
         <p>{order.notes}</p>
       </div>
