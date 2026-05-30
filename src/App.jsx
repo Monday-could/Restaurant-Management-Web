@@ -724,9 +724,9 @@ function App() {
   return (
     <div className="app-shell">
       <header className="site-header">
-        <Link className="brand" to="/" aria-label="Diner Desk home">
-          <span className="brand-mark">D</span>
-          <span>Diner Desk</span>
+        <Link className="brand" to="/" aria-label="Tom's Mysterious Restaurant home">
+          <span className="brand-mark">T</span>
+          <span>Tom&apos;s Mysterious Restaurant</span>
         </Link>
 
         <nav className="desktop-nav" aria-label="Primary navigation">
@@ -920,7 +920,7 @@ function App() {
 
       <footer className="site-footer">
         <div>
-          <strong>Diner Desk</strong>
+          <strong>Tom&apos;s Mysterious Restaurant</strong>
           <p>Warm diner service, clear ordering, fast staff action.</p>
         </div>
         <div className="footer-links">

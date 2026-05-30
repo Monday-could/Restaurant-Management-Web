@@ -132,19 +132,19 @@ a {
 .brand {
   gap: 10px;
   min-width: 0;
-  flex: 1 1 140px;
+  flex: 1 1 160px;
   font-family: var(--font-display);
-  font-size: 30px;
+  font-size: clamp(17px, 3.4vw, 28px);
   font-weight: 900;
   letter-spacing: 0;
-  text-transform: uppercase;
+  line-height: 1.05;
+  text-transform: none;
 }
 
 .brand > span:last-child {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .brand-mark {
@@ -2441,7 +2441,7 @@ a.drawer-link.active {
 
 @media (max-width: 640px) {
   .brand {
-    font-size: 24px;
+    font-size: clamp(15px, 4.2vw, 22px);
   }
 
   .brand-mark {
