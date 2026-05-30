@@ -20,6 +20,8 @@ import {
   logout,
   registerCustomer,
 } from "./services/authService.js";
+import { useI18n } from "./i18n/I18nContext.jsx";
+import { LanguageSwitcher } from "./i18n/LanguageSwitcher.jsx";
 
 const STORAGE_KEY = "diner-desk-state-v2";
 
@@ -295,12 +297,6 @@ const initialState = {
   cart: [],
 };
 
-const modes = [
-  { id: "customer", label: "\u5ba2\u6237\u6a21\u5f0f", path: "/menu" },
-  { id: "staff", label: "\u5458\u5de5\u6a21\u5f0f", path: "/orders" },
-  { id: "owner", label: "\u8001\u677f\u6a21\u5f0f", path: "/owner" },
-];
-
 function loadState() {
   try {
     const saved = window.localStorage.getItem(STORAGE_KEY);
@@ -339,6 +335,7 @@ function filterMenuByCategoryAndBadge(items, category, badge, badgeCtx) {
 }
 
 function MenuFiltersBar({ menuItems, category, badge, onCategory, onBadge, badgeOptions }) {
+  const { t } = useI18n();
   const catSelectId = useId();
   const badgeSelectId = useId();
   const categoryOptions = useMemo(() => uniqSortedCategoryValues(menuItems), [menuItems]);
@@ -358,9 +355,9 @@ function MenuFiltersBar({ menuItems, category, badge, onCategory, onBadge, badge
     <div className="menu-filters-bar">
       <div className="menu-filters-fields">
         <label htmlFor={catSelectId}>
-          Category
+          {t("menuFilters.category")}
           <select id={catSelectId} value={category} onChange={(event) => onCategory(event.target.value)}>
-            <option value="all">All categories</option>
+            <option value="all">{t("menuFilters.allCategories")}</option>
             {categoryOptions.map((c) => (
               <option key={c} value={c}>
                 {c}
@@ -369,9 +366,9 @@ function MenuFiltersBar({ menuItems, category, badge, onCategory, onBadge, badge
           </select>
         </label>
         <label htmlFor={badgeSelectId}>
-          Badge
+          {t("menuFilters.badge")}
           <select id={badgeSelectId} value={badge} onChange={(event) => onBadge(event.target.value)}>
-            <option value="all">All badges</option>
+            <option value="all">{t("menuFilters.allBadges")}</option>
             {badgeOptionsSafe.map((b) => (
               <option key={b} value={b}>
                 {b}
@@ -389,7 +386,7 @@ function MenuFiltersBar({ menuItems, category, badge, onCategory, onBadge, badge
             onBadge("all");
           }}
         >
-          Clear filters
+          {t("menuFilters.clear")}
         </button>
       ) : null}
     </div>
@@ -397,8 +394,9 @@ function MenuFiltersBar({ menuItems, category, badge, onCategory, onBadge, badge
 }
 
 function StarRating({ value }) {
+  const { t } = useI18n();
   return (
-    <span className="stars" aria-label={`${value} out of 5 stars`}>
+    <span className="stars" aria-label={t("a11y.stars", { value })}>
       {"\u2605".repeat(value)}
       <span>{"\u2606".repeat(5 - value)}</span>
     </span>
@@ -406,6 +404,7 @@ function StarRating({ value }) {
 }
 
 function DishReviewsModal({ open, onClose, item }) {
+  const { t } = useI18n();
   const titleId = item ? `dish-reviews-modal-title-${item.id}` : "dish-reviews-modal-title";
 
   useEffect(() => {
@@ -429,13 +428,13 @@ function DishReviewsModal({ open, onClose, item }) {
         onClick={(event) => event.stopPropagation()}
       >
         <div className="order-modal-header">
-          <h2 id={titleId}>All reviews</h2>
-          <button type="button" className="icon-button" aria-label="Close" onClick={onClose}>
+          <h2 id={titleId}>{t("dishReviews.title")}</h2>
+          <button type="button" className="icon-button" aria-label={t("common.close")} onClick={onClose}>
             <Icon name="x" />
           </button>
         </div>
         <p className="order-modal-dish">{item.name}</p>
-        <p className="dish-reviews-modal-count">{item.reviews.length} total</p>
+        <p className="dish-reviews-modal-count">{t("dishReviews.total", { count: item.reviews.length })}</p>
         <ul className="dish-reviews-modal-list">
           {item.reviews.map((review, index) => {
             const rid = review.id ?? `${item.id}-review-${index}`;
@@ -443,7 +442,7 @@ function DishReviewsModal({ open, onClose, item }) {
             return (
               <li key={rid} className="menu-card-review-item">
                 <div className="menu-card-review-meta">
-                  <strong>{review.author || "Guest"}</strong>
+                  <strong>{review.author && review.author !== "Guest" ? review.author : t("common.guest")}</strong>
                   {stars > 0 ? <StarRating value={stars} /> : null}
                 </div>
                 <p>{review.text}</p>
@@ -453,7 +452,7 @@ function DishReviewsModal({ open, onClose, item }) {
         </ul>
         <div className="order-modal-actions">
           <button type="button" className="primary-cta" onClick={onClose}>
-            Close
+            {t("dishReviews.close")}
           </button>
         </div>
       </div>
@@ -462,13 +461,14 @@ function DishReviewsModal({ open, onClose, item }) {
 }
 
 function ToastStack({ toasts, onDismiss }) {
+  const { t } = useI18n();
   if (!toasts.length) return null;
   return (
-    <div className="toast-stack" role="region" aria-label="Notifications" aria-live="polite">
-      {toasts.map((t) => (
-        <div key={t.id} className={`toast toast--${t.variant || "success"}`} role="status">
-          <p className="toast-message">{t.message}</p>
-          <button type="button" className="toast-dismiss" aria-label="Dismiss notification" onClick={() => onDismiss(t.id)}>
+    <div className="toast-stack" role="region" aria-label={t("common.notifications")} aria-live="polite">
+      {toasts.map((toast) => (
+        <div key={toast.id} className={`toast toast--${toast.variant || "success"}`} role="status">
+          <p className="toast-message">{toast.message}</p>
+          <button type="button" className="toast-dismiss" aria-label={t("common.dismissNotification")} onClick={() => onDismiss(toast.id)}>
             <Icon name="x" />
           </button>
         </div>
@@ -503,6 +503,7 @@ function RequireRole({ session, role, children }) {
 }
 
 function LoginPage({ onLoginSuccess, pushToast }) {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const roleHint = searchParams.get("role") || "customer";
@@ -511,12 +512,11 @@ function LoginPage({ onLoginSuccess, pushToast }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const hintText =
-    roleHint === "staff"
-      ? "员工模式：请使用预留账号 worker / imworker 登录。"
-      : roleHint === "owner"
-        ? "老板模式：请使用预留账号 boss / imboss 登录。"
-        : "顾客可使用注册账号登录；不登录也可直接浏览菜单与购物车（游客）。";
+  const hintText = useMemo(() => {
+    if (roleHint === "staff") return t("auth.login.hintStaff");
+    if (roleHint === "owner") return t("auth.login.hintOwner");
+    return t("auth.login.hintCustomer");
+  }, [roleHint, t]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -525,12 +525,13 @@ function LoginPage({ onLoginSuccess, pushToast }) {
     try {
       const session = await authLogin({ username, password });
       onLoginSuccess(session);
-      pushToast(`欢迎，${session.username}。`);
+      pushToast(t("toast.welcome", { name: session.username }));
       if (session.role === "staff") navigate("/orders", { replace: true });
       else if (session.role === "owner") navigate("/owner", { replace: true });
       else navigate("/menu", { replace: true });
     } catch (err) {
-      setError(err?.message || "登录失败。");
+      const code = err?.code;
+      setError(code ? t(`auth.error.${code}`) : t("auth.error.LOGIN_FAILED"));
     } finally {
       setLoading(false);
     }
@@ -539,8 +540,8 @@ function LoginPage({ onLoginSuccess, pushToast }) {
   return (
     <section className="content-section page-section auth-page" aria-labelledby="login-title">
       <div className="section-heading">
-        <p className="eyebrow">Account</p>
-        <h2 id="login-title">登录</h2>
+        <p className="eyebrow">{t("auth.login.eyebrow")}</p>
+        <h2 id="login-title">{t("auth.login.title")}</h2>
         <p className="auth-hint">{hintText}</p>
       </div>
       <form className="auth-form" onSubmit={handleSubmit}>
@@ -550,7 +551,7 @@ function LoginPage({ onLoginSuccess, pushToast }) {
           </p>
         ) : null}
         <label className="auth-label">
-          用户名
+          {t("auth.login.username")}
           <input
             className="auth-input"
             value={username}
@@ -559,7 +560,7 @@ function LoginPage({ onLoginSuccess, pushToast }) {
           />
         </label>
         <label className="auth-label">
-          密码
+          {t("auth.login.password")}
           <input
             className="auth-input"
             type="password"
@@ -569,19 +570,20 @@ function LoginPage({ onLoginSuccess, pushToast }) {
           />
         </label>
         <button className="primary-cta" type="submit" disabled={loading}>
-          {loading ? "请稍候…" : "登录"}
+          {loading ? t("auth.login.loading") : t("auth.login.submit")}
         </button>
       </form>
       <p className="auth-secondary-actions">
-        <Link to="/register">还没有账号？去注册</Link>
+        <Link to="/register">{t("auth.login.linkRegister")}</Link>
         {" · "}
-        <Link to="/menu">以游客继续浏览</Link>
+        <Link to="/menu">{t("auth.login.linkGuest")}</Link>
       </p>
     </section>
   );
 }
 
 function RegisterPage({ onLoginSuccess, pushToast }) {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -593,17 +595,18 @@ function RegisterPage({ onLoginSuccess, pushToast }) {
     event.preventDefault();
     setError("");
     if (password !== confirm) {
-      setError("两次输入的密码不一致。");
+      setError(t("auth.error.REG_PASSWORD_MISMATCH"));
       return;
     }
     setLoading(true);
     try {
       const session = await registerCustomer({ username, password });
       onLoginSuccess(session);
-      pushToast("注册成功，已自动登录。");
+      pushToast(t("toast.registerOk"));
       navigate("/menu", { replace: true });
     } catch (err) {
-      setError(err?.message || "注册失败。");
+      const code = err?.code;
+      setError(code ? t(`auth.error.${code}`) : t("auth.error.REGISTER_FAILED"));
     } finally {
       setLoading(false);
     }
@@ -612,9 +615,9 @@ function RegisterPage({ onLoginSuccess, pushToast }) {
   return (
     <section className="content-section page-section auth-page" aria-labelledby="register-title">
       <div className="section-heading">
-        <p className="eyebrow">Account</p>
-        <h2 id="register-title">顾客注册</h2>
-        <p className="auth-hint">仅创建顾客账号。接入数据库前，账号信息保存在本机浏览器中。</p>
+        <p className="eyebrow">{t("auth.register.eyebrow")}</p>
+        <h2 id="register-title">{t("auth.register.title")}</h2>
+        <p className="auth-hint">{t("auth.register.hint")}</p>
       </div>
       <form className="auth-form" onSubmit={handleSubmit}>
         {error ? (
@@ -623,7 +626,7 @@ function RegisterPage({ onLoginSuccess, pushToast }) {
           </p>
         ) : null}
         <label className="auth-label">
-          用户名
+          {t("auth.login.username")}
           <input
             className="auth-input"
             value={username}
@@ -632,7 +635,7 @@ function RegisterPage({ onLoginSuccess, pushToast }) {
           />
         </label>
         <label className="auth-label">
-          密码
+          {t("auth.login.password")}
           <input
             className="auth-input"
             type="password"
@@ -642,7 +645,7 @@ function RegisterPage({ onLoginSuccess, pushToast }) {
           />
         </label>
         <label className="auth-label">
-          确认密码
+          {t("auth.register.password2")}
           <input
             className="auth-input"
             type="password"
@@ -652,19 +655,20 @@ function RegisterPage({ onLoginSuccess, pushToast }) {
           />
         </label>
         <button className="primary-cta" type="submit" disabled={loading}>
-          {loading ? "请稍候…" : "注册并登录"}
+          {loading ? t("auth.login.loading") : t("auth.register.submit")}
         </button>
       </form>
       <p className="auth-secondary-actions">
-        <Link to="/login">已有账号？去登录</Link>
+        <Link to="/login">{t("auth.register.linkLogin")}</Link>
         {" · "}
-        <Link to="/menu">以游客继续浏览</Link>
+        <Link to="/menu">{t("auth.login.linkGuest")}</Link>
       </p>
     </section>
   );
 }
 
 function App() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
   const [mode, setMode] = useState(initialModeFromSession);
@@ -674,6 +678,15 @@ function App() {
   const [pendingOrderItem, setPendingOrderItem] = useState(null);
   const [orderNotesDraft, setOrderNotesDraft] = useState("");
   const [toasts, setToasts] = useState([]);
+
+  const modes = useMemo(
+    () => [
+      { id: "customer", label: t("mode.customer"), path: "/menu" },
+      { id: "staff", label: t("mode.staff"), path: "/orders" },
+      { id: "owner", label: t("mode.owner"), path: "/owner" },
+    ],
+    [t],
+  );
 
   const pushToast = useCallback((message, variant = "success") => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -698,17 +711,17 @@ function App() {
     logout();
     setAuthSession(null);
     setMode("customer");
-    pushToast("已退出登录。");
+    pushToast(t("toast.logout"));
     navigate("/menu");
-  }, [navigate, pushToast]);
+  }, [navigate, pushToast, t]);
 
   const exitStaffOrOwnerForGuestBrowse = useCallback(() => {
     if (authSession?.role === "staff" || authSession?.role === "owner") {
       logout();
       setAuthSession(null);
-      pushToast("已退出职级账号，以访客身份浏览顾客模式。");
+      pushToast(t("toast.exitStaffOwner"));
     }
-  }, [authSession, pushToast]);
+  }, [authSession, pushToast, t]);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -765,7 +778,7 @@ function App() {
       ],
     }));
     closeOrderNoteModal();
-    pushToast(`Added “${dishName}” to your cart.`);
+    pushToast(t("toast.addCart", { dish: dishName }));
   }
 
   function updateCartLineQuantity(lineId, newQuantity) {
@@ -838,7 +851,7 @@ function App() {
           : item,
       ),
     }));
-    pushToast("Thanks — your review was posted.");
+    pushToast(t("toast.reviewPosted"));
   }
 
   function addMenuItem(item) {
@@ -947,42 +960,43 @@ function App() {
   return (
     <div className="app-shell">
       <header className="site-header">
-        <Link className="brand" to="/" aria-label="Tom's Mysterious Restaurant home">
+        <Link className="brand" to="/" aria-label={t("header.brandAria")}>
           <span className="brand-mark">T</span>
           <span>Tom&apos;s Mysterious Restaurant</span>
         </Link>
 
-        <nav className="desktop-nav" aria-label="Primary navigation">
-          <NavLink to="/menu">Menu</NavLink>
-          <NavLink to="/location">Location</NavLink>
+        <nav className="desktop-nav" aria-label={t("nav.primaryAria")}>
+          <NavLink to="/menu">{t("header.navMenu")}</NavLink>
+          <NavLink to="/location">{t("header.navLocation")}</NavLink>
           {!authSession ? (
             <>
-              <NavLink to="/login">登录</NavLink>
-              <NavLink to="/register">注册</NavLink>
+              <NavLink to="/login">{t("header.login")}</NavLink>
+              <NavLink to="/register">{t("header.register")}</NavLink>
             </>
           ) : (
             <span className="header-user-inline">
               <span className="header-user-name">{authSession.username}</span>
               <button type="button" className="header-logout-button" onClick={handleLogout}>
-                退出
+                {t("header.logout")}
               </button>
             </span>
           )}
           {mode === "owner" ? (
             <>
               <NavLink to="/owner/add" end>
-                Add dish
+                {t("header.addDish")}
               </NavLink>
-              <NavLink to="/owner/edit">Edit menu</NavLink>
+              <NavLink to="/owner/edit">{t("header.editMenu")}</NavLink>
             </>
           ) : null}
         </nav>
 
         <div className="header-actions">
+          <LanguageSwitcher />
           <button
             className="icon-button"
             type="button"
-            aria-label="Profile"
+            aria-label={t("header.profileAria")}
             onClick={() => navigate("/profile")}
           >
             <Icon name="user" />
@@ -990,7 +1004,7 @@ function App() {
           <button
             className="cart-button"
             type="button"
-            aria-label={`Shopping cart, ${cartCount} items`}
+            aria-label={t("header.cartAria", { count: cartCount })}
             onClick={() => navigate("/cart")}
           >
             <Icon name="cart" />
@@ -1005,11 +1019,11 @@ function App() {
               navigate("/menu");
             }}
           >
-            Order Now
+            {t("header.orderNow")}
           </button>
           <details className="mode-menu-wrap">
-            <summary className="mode-menu-button">Mode</summary>
-            <div className="mode-menu" role="menu" aria-label="Mode selection">
+            <summary className="mode-menu-button">{t("header.mode")}</summary>
+            <div className="mode-menu" role="menu" aria-label={t("header.modeMenuAria")}>
               {modes.map((item) => (
                 <button
                   key={item.id}
@@ -1029,7 +1043,7 @@ function App() {
           <button
             className="mobile-menu"
             type="button"
-            aria-label="Open menu"
+            aria-label={t("header.openMobileMenu")}
             aria-expanded={drawerOpen}
             onClick={() => setDrawerOpen(true)}
           >
@@ -1042,36 +1056,40 @@ function App() {
         <div className="drawer-backdrop" onClick={() => setDrawerOpen(false)}>
           <aside
             className="mobile-drawer"
-            aria-label="Mobile navigation"
+            aria-label={t("drawer.mobileNavAria")}
             onClick={(event) => event.stopPropagation()}
           >
             <button
               className="icon-button drawer-close"
               type="button"
-              aria-label="Close menu"
+              aria-label={t("header.closeMobileMenu")}
               onClick={() => setDrawerOpen(false)}
             >
               <Icon name="x" />
             </button>
+            <div className="drawer-lang-row">
+              <LanguageSwitcher />
+            </div>
             <MobileLink to="/menu" onDone={() => setDrawerOpen(false)}>
-              Menu
+              {t("drawer.menu")}
             </MobileLink>
             <MobileLink to="/location" onDone={() => setDrawerOpen(false)}>
-              Location
+              {t("drawer.location")}
             </MobileLink>
             {!authSession ? (
               <>
                 <MobileLink to="/login" onDone={() => setDrawerOpen(false)}>
-                  登录
+                  {t("header.login")}
                 </MobileLink>
                 <MobileLink to="/register" onDone={() => setDrawerOpen(false)}>
-                  注册
+                  {t("header.register")}
                 </MobileLink>
               </>
             ) : (
               <>
                 <p className="drawer-user-line">
-                  已登录：<strong>{authSession.username}</strong>
+                  {t("drawer.signedInPrefix")}
+                  <strong>{authSession.username}</strong>
                 </p>
                 <button
                   className="drawer-link"
@@ -1081,17 +1099,17 @@ function App() {
                     setDrawerOpen(false);
                   }}
                 >
-                  退出登录
+                  {t("drawer.logout")}
                 </button>
               </>
             )}
             {mode === "owner" ? (
               <>
                 <MobileLink to="/owner/add" onDone={() => setDrawerOpen(false)}>
-                  Add dish
+                  {t("header.addDish")}
                 </MobileLink>
                 <MobileLink to="/owner/edit" onDone={() => setDrawerOpen(false)}>
-                  Edit menu
+                  {t("header.editMenu")}
                 </MobileLink>
               </>
             ) : null}
@@ -1133,13 +1151,13 @@ function App() {
                 onStatusChange={(orderId, status) => {
                   updateOrderStatus(orderId, status);
                   pushToast(
-                    status === "accepted" ? "Ticket accepted — kitchen can start prep." : "Ticket declined.",
+                    status === "accepted" ? t("toast.ticketAccepted") : t("toast.ticketDeclined"),
                     status === "accepted" ? "success" : "info",
                   );
                 }}
                 onReady={(orderId) => {
                   markOrderReady(orderId);
-                  pushToast("Marked ready for guest pickup.");
+                  pushToast(t("toast.orderReady"));
                 }}
               />
             }
@@ -1154,7 +1172,7 @@ function App() {
                 onRemoveLine={removeCartLine}
                 onCheckout={checkoutCart}
                 onCheckoutSuccess={({ qty, lines }) => {
-                  pushToast(`Order sent — ${qty} item(s) on ${lines} ticket line(s).`);
+                  pushToast(t("toast.orderSent", { qty, lines }));
                 }}
               />
             }
@@ -1192,14 +1210,14 @@ function App() {
       <footer className="site-footer">
         <div>
           <strong>Tom&apos;s Mysterious Restaurant</strong>
-          <p>Warm diner service, clear ordering, fast staff action.</p>
+          <p>{t("footer.tagline")}</p>
         </div>
         <div className="footer-links">
-          <Link to="/menu">Menu</Link>
-          <Link to="/cart">Cart</Link>
+          <Link to="/menu">{t("footer.menu")}</Link>
+          <Link to="/cart">{t("footer.cart")}</Link>
           <Link to="/location">
             <Icon name="pin" />
-            Chicago Demo Store
+            {t("footer.demoStore")}
           </Link>
         </div>
       </footer>
@@ -1218,30 +1236,30 @@ function App() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="order-modal-header">
-              <h2 id="order-notes-title">Add to cart</h2>
-              <button className="icon-button" type="button" aria-label="Close" onClick={closeOrderNoteModal}>
+              <h2 id="order-notes-title">{t("orderModal.title")}</h2>
+              <button className="icon-button" type="button" aria-label={t("common.close")} onClick={closeOrderNoteModal}>
                 <Icon name="x" />
               </button>
             </div>
             <p className="order-modal-dish">{pendingOrderItem.name}</p>
-            <p className="order-modal-hint">Add a note for the kitchen (optional).</p>
+            <p className="order-modal-hint">{t("orderModal.hint")}</p>
             <label className="order-modal-label">
-              Notes
+              {t("orderModal.notesLabel")}
               <textarea
                 className="order-modal-textarea"
                 value={orderNotesDraft}
                 onChange={(event) => setOrderNotesDraft(event.target.value)}
-                placeholder="Allergies, spice level, sides…"
+                placeholder={t("orderModal.notesPlaceholder")}
                 rows={4}
                 autoFocus
               />
             </label>
             <div className="order-modal-actions">
               <button className="secondary-cta" type="button" onClick={closeOrderNoteModal}>
-                Cancel
+                {t("orderModal.cancel")}
               </button>
               <button className="primary-cta" type="button" onClick={submitAddToCart}>
-                Add to cart
+                {t("orderModal.confirm")}
               </button>
             </div>
           </div>
@@ -1261,6 +1279,7 @@ function MobileLink({ to, onDone, children }) {
 }
 
 function CartPage({ cart, onUpdateQuantity, onRemoveLine, onCheckout, onCheckoutSuccess }) {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const subtotal = useMemo(
     () => cart.reduce((sum, line) => sum + Number(line.price) * Number(line.quantity || 1), 0),
@@ -1279,23 +1298,23 @@ function CartPage({ cart, onUpdateQuantity, onRemoveLine, onCheckout, onCheckout
   return (
     <section className="cart-page content-section page-section" aria-labelledby="cart-title">
       <div className="section-heading cart-page-intro">
-        <p className="eyebrow">Your tray</p>
-        <h1 id="cart-title">Shopping cart</h1>
-        <p>Items you add from the menu stay here until you check out. Staff only see tickets after checkout.</p>
+        <p className="eyebrow">{t("cart.eyebrow")}</p>
+        <h1 id="cart-title">{t("cart.title")}</h1>
+        <p>{t("cart.intro")}</p>
       </div>
 
       {!cart.length ? (
         <div className="cart-empty-panel">
-          <p className="cart-empty-title">Nothing in your cart yet</p>
-          <p className="cart-empty-copy">Pick dishes from the menu, add notes if you like, then come back here.</p>
+          <p className="cart-empty-title">{t("cart.emptyTitle")}</p>
+          <p className="cart-empty-copy">{t("cart.emptyCopy")}</p>
           <Link className="primary-cta" to="/menu">
-            Browse menu
+            {t("cart.browseMenu")}
           </Link>
         </div>
       ) : (
         <div className="cart-layout">
           <div className="cart-lines-panel">
-            <h2 className="cart-panel-heading">Items</h2>
+            <h2 className="cart-panel-heading">{t("cart.itemsHead")}</h2>
             <ul className="cart-line-list">
               {cart.map((line) => {
                 const lineTotal = Number(line.price) * Number(line.quantity || 1);
@@ -1309,19 +1328,19 @@ function CartPage({ cart, onUpdateQuantity, onRemoveLine, onCheckout, onCheckout
                         <h3>{line.itemName}</h3>
                         <strong className="cart-line-price">{formatPrice(lineTotal)}</strong>
                       </div>
-                      <p className="cart-line-unit">{formatPrice(line.price)} each</p>
+                      <p className="cart-line-unit">{t("cart.each", { price: formatPrice(line.price) })}</p>
                       {line.notes && line.notes !== "No special request" ? (
                         <p className="cart-line-notes">
-                          <span className="cart-notes-label">Note</span> {line.notes}
+                          <span className="cart-notes-label">{t("cart.noteLabel")}</span> {line.notes}
                         </p>
                       ) : null}
                       <div className="cart-line-controls">
-                        <div className="cart-qty" aria-label="Quantity">
+                        <div className="cart-qty" aria-label={t("cart.qtyAria")}>
                           <button
                             type="button"
                             className="cart-qty-button"
                             onClick={() => onUpdateQuantity(line.id, line.quantity - 1)}
-                            aria-label="Decrease quantity"
+                            aria-label={t("cart.decAria")}
                           >
                             −
                           </button>
@@ -1330,13 +1349,13 @@ function CartPage({ cart, onUpdateQuantity, onRemoveLine, onCheckout, onCheckout
                             type="button"
                             className="cart-qty-button"
                             onClick={() => onUpdateQuantity(line.id, line.quantity + 1)}
-                            aria-label="Increase quantity"
+                            aria-label={t("cart.incAria")}
                           >
                             +
                           </button>
                         </div>
                         <button type="button" className="cart-remove" onClick={() => onRemoveLine(line.id)}>
-                          Remove
+                          {t("cart.remove")}
                         </button>
                       </div>
                     </div>
@@ -1347,22 +1366,22 @@ function CartPage({ cart, onUpdateQuantity, onRemoveLine, onCheckout, onCheckout
           </div>
 
           <aside className="cart-summary-panel" aria-labelledby="cart-summary-title">
-            <h2 id="cart-summary-title">Order summary</h2>
+            <h2 id="cart-summary-title">{t("cart.summaryTitle")}</h2>
             <dl className="cart-summary-rows">
               <div className="cart-summary-row">
-                <dt>Items</dt>
+                <dt>{t("cart.items")}</dt>
                 <dd>{cart.reduce((n, line) => n + Number(line.quantity || 1), 0)}</dd>
               </div>
               <div className="cart-summary-row cart-summary-total">
-                <dt>Total</dt>
+                <dt>{t("cart.total")}</dt>
                 <dd>{formatPrice(subtotal)}</dd>
               </div>
             </dl>
-            <p className="cart-demo-note">Payment is skipped in this demo.</p>
+            <p className="cart-demo-note">{t("cart.demoNote")}</p>
             <button type="button" className="primary-cta cart-checkout-btn" onClick={handleCheckout}>
-              Checkout
+              {t("cart.checkout")}
             </button>
-            <p className="cart-checkout-hint">Checkout sends each line to the kitchen as a ticket for staff.</p>
+            <p className="cart-checkout-hint">{t("cart.checkoutHint")}</p>
           </aside>
         </div>
       )}
@@ -1371,6 +1390,7 @@ function CartPage({ cart, onUpdateQuantity, onRemoveLine, onCheckout, onCheckout
 }
 
 function HomePopularCarousel({ items, onOrder, orders, menuForBadges }) {
+  const { t } = useI18n();
   const [index, setIndex] = useState(0);
   const count = items.length;
 
@@ -1389,19 +1409,19 @@ function HomePopularCarousel({ items, onOrder, orders, menuForBadges }) {
   if (!count) {
     return (
       <div className="empty-state empty-state--soft home-carousel-empty" role="status">
-        <p className="empty-state-title">No dishes to show yet</p>
-        <p className="empty-state-hint">Open the full menu or add dishes in owner mode.</p>
+        <p className="empty-state-title">{t("home.carouselEmptyTitle")}</p>
+        <p className="empty-state-hint">{t("home.carouselEmptyHint")}</p>
         <Link className="secondary-cta" to="/menu">
-          View full menu
+          {t("home.viewFullMenu")}
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="home-carousel" aria-roledescription="carousel" aria-label="Popular dishes">
+    <div className="home-carousel" aria-roledescription="carousel" aria-label={t("home.carouselAria")}>
       <div className="home-carousel-controls">
-        <button type="button" className="home-carousel-arrow" aria-label="Previous dish" onClick={goPrev}>
+        <button type="button" className="home-carousel-arrow" aria-label={t("home.prevDish")} onClick={goPrev}>
           <span aria-hidden="true">‹</span>
         </button>
         <div className="home-carousel-viewport">
@@ -1413,18 +1433,18 @@ function HomePopularCarousel({ items, onOrder, orders, menuForBadges }) {
             ))}
           </div>
         </div>
-        <button type="button" className="home-carousel-arrow" aria-label="Next dish" onClick={goNext}>
+        <button type="button" className="home-carousel-arrow" aria-label={t("home.nextDish")} onClick={goNext}>
           <span aria-hidden="true">›</span>
         </button>
       </div>
-      <div className="home-carousel-dots" role="tablist" aria-label="Slide indicators">
+      <div className="home-carousel-dots" role="tablist" aria-label={t("home.carouselAria")}>
         {items.map((_, i) => (
           <button
             key={items[i].id}
             type="button"
             role="tab"
             aria-selected={i === index}
-            aria-label={`Show dish ${i + 1} of ${count}`}
+            aria-label={t("home.slideShow", { i: i + 1, count })}
             className={`home-carousel-dot${i === index ? " active" : ""}`}
             onClick={() => setIndex(i)}
           />
@@ -1435,6 +1455,7 @@ function HomePopularCarousel({ items, onOrder, orders, menuForBadges }) {
 }
 
 function HomePage({ menu, orders, onOrder }) {
+  const { t } = useI18n();
   const visibleMenu = useMemo(() => menu.filter((item) => item.available !== false), [menu]);
   const popularItems = useMemo(
     () => sortVisibleMenuBySalesThenPopularity(visibleMenu, orders).slice(0, 4),
@@ -1445,31 +1466,29 @@ function HomePage({ menu, orders, onOrder }) {
     <div className="home-reveal">
       <section className="hero" aria-labelledby="hero-title">
         <div className="hero-copy">
-          <p className="eyebrow">Open table ordering</p>
-          <h1 id="hero-title">Big Flavor, Easy Ordering</h1>
-          <p>
-            Browse popular diner favorites, start an order fast, and keep the kitchen connected.
-          </p>
+          <p className="eyebrow">{t("home.heroEyebrow")}</p>
+          <h1 id="hero-title">{t("home.heroTitle")}</h1>
+          <p>{t("home.heroBody")}</p>
           <div className="hero-actions">
             <Link className="primary-cta" to="/menu">
-              Start Your Order
+              {t("home.startOrder")}
             </Link>
             <Link className="secondary-cta" to="/location">
-              Find Location
+              {t("home.findLocation")}
             </Link>
           </div>
         </div>
-        <div className="hero-food" aria-label="Featured diner dishes">
-          <img src="/assets/pancake-breakfast.png" alt="Pancake breakfast platter" />
-          <img src="/assets/diner-burger.png" alt="Cheeseburger and fries meal" />
+        <div className="hero-food" aria-label={t("home.heroFoodAria")}>
+          <img src="/assets/pancake-breakfast.png" alt="" />
+          <img src="/assets/diner-burger.png" alt="" />
         </div>
       </section>
 
       <section className="content-section home-reveal-content" aria-labelledby="popular-title">
         <div className="section-heading">
-          <p className="eyebrow">Most popular</p>
-          <h2 id="popular-title">Guest favorites</h2>
-          <p>Swipe through top picks by sales, then open the full menu to filter by category and badge.</p>
+          <p className="eyebrow">{t("home.popularEyebrow")}</p>
+          <h2 id="popular-title">{t("home.popularTitle")}</h2>
+          <p>{t("home.popularBody")}</p>
         </div>
         <HomePopularCarousel items={popularItems} onOrder={onOrder} orders={orders} menuForBadges={visibleMenu} />
         <OrderHistory orders={orders} />
@@ -1479,6 +1498,7 @@ function HomePage({ menu, orders, onOrder }) {
 }
 
 function MenuPage({ menu, orders, onOrder, onReview }) {
+  const { t } = useI18n();
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterBadge, setFilterBadge] = useState("all");
   const visibleMenu = useMemo(() => menu.filter((item) => item.available !== false), [menu]);
@@ -1492,9 +1512,9 @@ function MenuPage({ menu, orders, onOrder, onReview }) {
   return (
     <section className="content-section page-section" aria-labelledby="menu-title">
       <div className="section-heading">
-        <p className="eyebrow">Full menu</p>
-        <h2 id="menu-title">Order your favorites</h2>
-        <p>Choose a dish, place an order, and leave a review for the kitchen.</p>
+        <p className="eyebrow">{t("menuPage.eyebrow")}</p>
+        <h2 id="menu-title">{t("menuPage.title")}</h2>
+        <p>{t("menuPage.body")}</p>
       </div>
 
       <MenuFiltersBar
@@ -1514,8 +1534,8 @@ function MenuPage({ menu, orders, onOrder, onReview }) {
         </div>
       ) : (
         <div className="empty-state empty-state--soft menu-filter-empty" role="status">
-          <p className="empty-state-title">No dishes match these filters</p>
-          <p className="empty-state-hint">Try another category or badge, or tap Clear filters in the bar above.</p>
+          <p className="empty-state-title">{t("menuPage.emptyFilterTitle")}</p>
+          <p className="empty-state-hint">{t("menuPage.emptyFilterHint")}</p>
         </div>
       )}
 
@@ -1525,6 +1545,7 @@ function MenuPage({ menu, orders, onOrder, onReview }) {
 }
 
 function MenuCard({ item, onOrder, onReview, orders = [], menuForBadges = [] }) {
+  const { t } = useI18n();
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewsModalOpen, setReviewsModalOpen] = useState(false);
   const [author, setAuthor] = useState("");
@@ -1552,7 +1573,7 @@ function MenuCard({ item, onOrder, onReview, orders = [], menuForBadges = [] }) 
     event.preventDefault();
     if (!text.trim() || !onReview) return;
     onReview(item.id, {
-      author: author.trim() || "Guest",
+      author: author.trim() || "",
       rating: Number(rating),
       text: text.trim(),
     });
@@ -1586,63 +1607,65 @@ function MenuCard({ item, onOrder, onReview, orders = [], menuForBadges = [] }) 
         </div>
         <p>{item.description}</p>
         <div className="rating-line">
-          {averageRating ? <StarRating value={averageRating} /> : <span>No reviews yet</span>}
+          {averageRating ? <StarRating value={averageRating} /> : <span>{t("menuCard.noReviewsYet")}</span>}
           <span>
-            {item.reviews.length} review{item.reviews.length === 1 ? "" : "s"}
+            {item.reviews.length === 1
+              ? t("menuCard.reviewCount", { count: item.reviews.length })
+              : t("menuCard.reviewCountPlural", { count: item.reviews.length })}
           </span>
         </div>
         <div className="card-actions">
           <button className="primary-cta small" type="button" onClick={() => onOrder(item)}>
             <Icon name="plus" />
-            Add to cart
+            {t("menuCard.addToCart")}
           </button>
           {onReview && (
             <button className="secondary-cta small" type="button" onClick={() => setReviewOpen(!reviewOpen)}>
-              Review
+              {t("menuCard.review")}
             </button>
           )}
         </div>
         {reviewOpen && (
           <form className="review-form" onSubmit={submitReview}>
             <label>
-              Name
-              <input value={author} onChange={(event) => setAuthor(event.target.value)} placeholder="Guest" />
+              {t("menuCard.name")}
+              <input value={author} onChange={(event) => setAuthor(event.target.value)} placeholder={t("common.guest")} />
             </label>
             <label>
-              Rating
+              {t("menuCard.rating")}
               <select value={rating} onChange={(event) => setRating(event.target.value)}>
                 {[5, 4, 3, 2, 1].map((value) => (
                   <option key={value} value={value}>
-                    {value} stars
+                    {t("menuCard.starsOption", { n: value })}
                   </option>
                 ))}
               </select>
             </label>
             <label className="full-row">
-              Review
+              {t("menuCard.reviewText")}
               <textarea
                 value={text}
                 onChange={(event) => setText(event.target.value)}
-                placeholder="What did you like?"
+                placeholder={t("menuCard.reviewPlaceholder")}
                 rows="3"
               />
             </label>
             <button className="primary-cta small" type="submit">
-              Send Review
+              {t("menuCard.sendReview")}
             </button>
           </form>
         )}
         <section className="menu-card-reviews" aria-labelledby={`reviews-heading-${item.id}`}>
           <h4 className="menu-card-reviews-heading" id={`reviews-heading-${item.id}`}>
-            Recent reviews
+            {t("menuCard.recentReviews")}
           </h4>
           {item.reviews.length === 0 ? (
-            <p className="menu-card-reviews-empty">Be the first to review this dish.</p>
+            <p className="menu-card-reviews-empty">{t("menuCard.firstReview")}</p>
           ) : (
             <>
               {item.reviews.length > MENU_CARD_REVIEW_PREVIEW_COUNT ? (
                 <p className="menu-card-reviews-note">
-                  Showing the latest {MENU_CARD_REVIEW_PREVIEW_COUNT} of {item.reviews.length}.
+                  {t("menuCard.showingLatest", { n: MENU_CARD_REVIEW_PREVIEW_COUNT, total: item.reviews.length })}
                 </p>
               ) : null}
               <ul className="menu-card-reviews-list">
@@ -1652,7 +1675,7 @@ function MenuCard({ item, onOrder, onReview, orders = [], menuForBadges = [] }) 
                   return (
                     <li key={rid} className="menu-card-review-item">
                       <div className="menu-card-review-meta">
-                        <strong>{review.author || "Guest"}</strong>
+                        <strong>{review.author && review.author !== "Guest" ? review.author : t("common.guest")}</strong>
                         {stars > 0 ? <StarRating value={stars} /> : null}
                       </div>
                       <p>{review.text}</p>
@@ -1666,8 +1689,8 @@ function MenuCard({ item, onOrder, onReview, orders = [], menuForBadges = [] }) 
                 onClick={() => setReviewsModalOpen(true)}
               >
                 {item.reviews.length > MENU_CARD_REVIEW_PREVIEW_COUNT
-                  ? `View all ${item.reviews.length} reviews`
-                  : "View all reviews"}
+                  ? t("menuCard.viewAllCount", { count: item.reviews.length })
+                  : t("menuCard.viewAllReviews")}
               </button>
             </>
           )}
@@ -1679,13 +1702,14 @@ function MenuCard({ item, onOrder, onReview, orders = [], menuForBadges = [] }) 
 }
 
 function OrderHistory({ orders }) {
+  const { t } = useI18n();
   const recentOrders = orders.slice(0, 4);
 
   return (
     <div className="order-history">
       <div className="section-heading compact">
-        <p className="eyebrow">Live ticket board</p>
-        <h2>Recent orders</h2>
+        <p className="eyebrow">{t("orderHistory.eyebrow")}</p>
+        <h2>{t("orderHistory.title")}</h2>
       </div>
       {recentOrders.length ? (
         <div className="ticket-list">
@@ -1695,10 +1719,10 @@ function OrderHistory({ orders }) {
         </div>
       ) : (
         <div className="empty-state empty-state--soft order-history-empty">
-          <p className="empty-state-title">No kitchen tickets yet</p>
-          <p className="empty-state-hint">Check out from the cart — each line becomes a ticket for staff.</p>
+          <p className="empty-state-title">{t("orderHistory.emptyTitle")}</p>
+          <p className="empty-state-hint">{t("orderHistory.emptyHint")}</p>
           <Link className="secondary-cta" to="/menu">
-            Browse menu
+            {t("cart.browseMenu")}
           </Link>
         </div>
       )}
@@ -1707,6 +1731,7 @@ function OrderHistory({ orders }) {
 }
 
 function OrdersPage({ mode, session, orders, onStatusChange, onReady }) {
+  const { t } = useI18n();
   if (session?.role === "staff") {
     return <StaffMode orders={orders} onStatusChange={onStatusChange} onReady={onReady} />;
   }
@@ -1717,9 +1742,9 @@ function OrdersPage({ mode, session, orders, onStatusChange, onReady }) {
   return (
     <section className="content-section page-section" aria-labelledby="orders-title">
       <div className="section-heading">
-        <p className="eyebrow">Orders</p>
-        <h2 id="orders-title">Your order board</h2>
-        <p>Customer orders appear here first, then staff can switch modes and accept tickets.</p>
+        <p className="eyebrow">{t("ordersPage.eyebrow")}</p>
+        <h2 id="orders-title">{t("ordersPage.title")}</h2>
+        <p>{t("ordersPage.body")}</p>
       </div>
       <OrderHistory orders={orders} />
     </section>
@@ -1727,44 +1752,45 @@ function OrdersPage({ mode, session, orders, onStatusChange, onReady }) {
 }
 
 function StaffMode({ orders, onStatusChange, onReady }) {
+  const { t } = useI18n();
   const pending = orders.filter((order) => order.status === "new");
   const handled = orders.filter((order) => order.status !== "new");
 
   return (
     <section className="content-section page-section" aria-labelledby="staff-title">
       <div className="section-heading">
-        <p className="eyebrow">Staff mode</p>
-        <h2 id="staff-title">New customer orders</h2>
-        <p>Accept the tickets you can prepare now or decline them before the kitchen starts.</p>
+        <p className="eyebrow">{t("staff.eyebrow")}</p>
+        <h2 id="staff-title">{t("staff.title")}</h2>
+        <p>{t("staff.body")}</p>
       </div>
 
       <div className="staff-layout">
         <div>
-          <h3 className="panel-title">Waiting for action</h3>
+          <h3 className="panel-title">{t("staff.waitingTitle")}</h3>
           <div className="ticket-list">
             {pending.length ? (
               pending.map((order) => (
                 <OrderTicket key={order.id} order={order} hideReadyState>
                   <button className="accept-button" type="button" onClick={() => onStatusChange(order.id, "accepted")}>
                     <Icon name="check" />
-                    Accept
+                    {t("staff.accept")}
                   </button>
                   <button className="decline-button" type="button" onClick={() => onStatusChange(order.id, "declined")}>
                     <Icon name="x" />
-                    Decline
+                    {t("staff.decline")}
                   </button>
                 </OrderTicket>
               ))
             ) : (
               <div className="empty-state empty-state--soft staff-empty">
-                <p className="empty-state-title">No new orders waiting</p>
-                <p className="empty-state-hint">Customer checkouts will appear here for Accept or Decline.</p>
+                <p className="empty-state-title">{t("staff.emptyPendingTitle")}</p>
+                <p className="empty-state-hint">{t("staff.emptyPendingHint")}</p>
               </div>
             )}
           </div>
         </div>
         <div>
-          <h3 className="panel-title">Handled tickets</h3>
+          <h3 className="panel-title">{t("staff.handledTitle")}</h3>
           <div className="ticket-list">
             {handled.length ? (
               handled.map((order) => (
@@ -1776,8 +1802,8 @@ function StaffMode({ orders, onStatusChange, onReady }) {
               ))
             ) : (
               <div className="empty-state empty-state--soft staff-empty">
-                <p className="empty-state-title">No handled tickets yet</p>
-                <p className="empty-state-hint">Accepted and declined orders show up here with ready status.</p>
+                <p className="empty-state-title">{t("staff.emptyHandledTitle")}</p>
+                <p className="empty-state-hint">{t("staff.emptyHandledHint")}</p>
               </div>
             )}
           </div>
@@ -1788,8 +1814,12 @@ function StaffMode({ orders, onStatusChange, onReady }) {
 }
 
 function OrderTicket({ order, children, onReady, hideReadyState = false }) {
+  const { t } = useI18n();
   const isReady = Boolean(order.ready);
   const showReadyPill = !hideReadyState && order.status === "accepted";
+  const statusKey = `orderStatus.${order.status}`;
+  const statusLabel = t(statusKey) !== statusKey ? t(statusKey) : order.status.toUpperCase();
+  const customerLabel = order.customerName === "Walk-in Guest" ? t("common.walkInGuest") : order.customerName;
 
   return (
     <article className={`ticket status-${order.status}`}>
@@ -1798,22 +1828,22 @@ function OrderTicket({ order, children, onReady, hideReadyState = false }) {
         <h3>{order.itemName}</h3>
         <p>
           {order.quantity} × {formatPrice(order.price)} = {formatPrice(Number(order.price) * Number(order.quantity || 1))}{" "}
-          · {order.customerName}
+          · {customerLabel}
         </p>
         <p>{order.notes}</p>
       </div>
       <div className="ticket-footer">
-        <span className={`status-pill status-label-${order.status}`}>{order.status.toUpperCase()}</span>
+        <span className={`status-pill status-label-${order.status}`}>{statusLabel}</span>
         <div className="ticket-actions">
           {children}
           {onReady && (
             <button className="ready-button" type="button" onClick={() => onReady(order.id)}>
-              Ready
+              {t("staff.ready")}
             </button>
           )}
           {showReadyPill && (
             <span className={isReady ? "ready-pill ready" : "ready-pill not-ready"}>
-              {isReady ? "READY" : "NOT READY"}
+              {isReady ? t("staff.readyYes") : t("staff.readyNo")}
             </span>
           )}
         </div>
@@ -1823,6 +1853,7 @@ function OrderTicket({ order, children, onReady, hideReadyState = false }) {
 }
 
 function OwnerImageUploadModal({ open, onClose, onApply }) {
+  const { t } = useI18n();
   const fileInputRef = useRef(null);
   const [draft, setDraft] = useState(null);
   const [error, setError] = useState(null);
@@ -1847,12 +1878,12 @@ function OwnerImageUploadModal({ open, onClose, onApply }) {
   function processFile(file) {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      setError("Please choose a single image file.");
+      setError(t("ownerUpload.notImage"));
       setDraft(null);
       return;
     }
     if (file.size > MAX_OWNER_IMAGE_BYTES) {
-      setError(`Image must be ${Math.round(MAX_OWNER_IMAGE_BYTES / 1024 / 1024)} MB or smaller.`);
+      setError(t("ownerUpload.tooLarge", { mb: Math.round(MAX_OWNER_IMAGE_BYTES / 1024 / 1024) }));
       setDraft(null);
       return;
     }
@@ -1862,7 +1893,7 @@ function OwnerImageUploadModal({ open, onClose, onApply }) {
       if (typeof reader.result === "string") setDraft(reader.result);
     };
     reader.onerror = () => {
-      setError("Could not read this file.");
+      setError(t("ownerUpload.readError"));
       setDraft(null);
     };
     reader.readAsDataURL(file);
@@ -1880,19 +1911,19 @@ function OwnerImageUploadModal({ open, onClose, onApply }) {
         onClick={(event) => event.stopPropagation()}
       >
         <div className="order-modal-header">
-          <h2 id="owner-upload-title">Upload dish image</h2>
-          <button className="icon-button" type="button" aria-label="Close" onClick={onClose}>
+          <h2 id="owner-upload-title">{t("ownerUpload.title")}</h2>
+          <button className="icon-button" type="button" aria-label={t("ownerUpload.close")} onClick={onClose}>
             <Icon name="x" />
           </button>
         </div>
-        <p className="owner-upload-intro">One image only. Drag a file here or use the file picker.</p>
+        <p className="owner-upload-intro">{t("ownerUpload.intro")}</p>
 
         <input
           ref={fileInputRef}
           type="file"
           className="owner-file-input-hidden"
           accept="image/*"
-          aria-label="Choose image file"
+          aria-label={t("ownerUpload.chooseFile")}
           onChange={(event) => {
             processFile(event.target.files?.[0]);
             event.target.value = "";
@@ -1922,8 +1953,8 @@ function OwnerImageUploadModal({ open, onClose, onApply }) {
           }}
           onClick={() => fileInputRef.current?.click()}
         >
-          <span className="owner-upload-dropzone-title">Drop image here</span>
-          <span className="owner-upload-dropzone-sub">or click to choose from your computer</span>
+          <span className="owner-upload-dropzone-title">{t("ownerUpload.dropTitle")}</span>
+          <span className="owner-upload-dropzone-sub">{t("ownerUpload.dropSub")}</span>
         </button>
 
         {error ? (
@@ -1934,14 +1965,14 @@ function OwnerImageUploadModal({ open, onClose, onApply }) {
 
         {draft ? (
           <div className="owner-upload-preview-wrap">
-            <p className="owner-upload-preview-label">Preview</p>
+            <p className="owner-upload-preview-label">{t("ownerUpload.preview")}</p>
             <img src={draft} alt="" className="owner-upload-preview" />
           </div>
         ) : null}
 
         <div className="order-modal-actions">
           <button className="secondary-cta" type="button" onClick={onClose}>
-            Cancel
+            {t("ownerUpload.cancel")}
           </button>
           <button
             className="primary-cta"
@@ -1952,7 +1983,7 @@ function OwnerImageUploadModal({ open, onClose, onApply }) {
               onClose();
             }}
           >
-            Use this image
+            {t("ownerUpload.useImage")}
           </button>
         </div>
       </div>
@@ -1961,6 +1992,7 @@ function OwnerImageUploadModal({ open, onClose, onApply }) {
 }
 
 function OwnerShell({ menu, orders, onAddMenuItem, onAddMenuItemsBatch, onUpdateMenuItem, onDeleteMenuItem, onToggleMenuItemAvailable }) {
+  const { t } = useI18n();
   const [stagedDishes, setStagedDishes] = useState(loadOwnerStagedSession);
 
   useEffect(() => {
@@ -1990,11 +2022,9 @@ function OwnerShell({ menu, orders, onAddMenuItem, onAddMenuItemsBatch, onUpdate
   return (
     <section className="content-section page-section owner-area">
       <div className="section-heading">
-        <p className="eyebrow">Owner mode</p>
-        <h2 id="owner-title">Menu management</h2>
-        <p>
-          Use the header links <strong>Add dish</strong> and <strong>Edit menu</strong> (visible in owner mode). Hidden dishes stay off the guest menu. The add-dish preview queue is kept when you switch between those pages or refresh this tab, until you submit to the menu or remove all items.
-        </p>
+        <p className="eyebrow">{t("ownerShell.eyebrow")}</p>
+        <h2 id="owner-title">{t("ownerShell.title")}</h2>
+        <p>{t("ownerShell.body")}</p>
       </div>
       <Outlet
         context={{
@@ -2016,6 +2046,7 @@ function OwnerShell({ menu, orders, onAddMenuItem, onAddMenuItemsBatch, onUpdate
 }
 
 function OwnerAddPage() {
+  const { t } = useI18n();
   const { onAddMenuItemsBatch, stagedDishes, addStagedDish, removeStagedDish, clearStagedDishes } = useOutletContext();
   const [imageSource, setImageSource] = useState("url");
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -2099,7 +2130,7 @@ function OwnerAddPage() {
       : typeof dish.badge === "string"
         ? migrateLegacyBadgeString(dish.badge)
         : [];
-    return m.length ? m.join(" · ") : "No custom badges";
+    return m.length ? m.join(" · ") : t("ownerAdd.noCustomBadges");
   }
 
   return (
@@ -2107,7 +2138,7 @@ function OwnerAddPage() {
       <div className="owner-add-form-column">
         <form className="owner-form owner-add-form" onSubmit={addToPreview}>
           <label>
-            Dish name
+            {t("ownerAdd.dishName")}
             <input
               value={form.name}
               onChange={(event) => updateField("name", event.target.value)}
@@ -2116,7 +2147,7 @@ function OwnerAddPage() {
             />
           </label>
           <label>
-            Price
+            {t("ownerAdd.price")}
             <input
               type="number"
               min="0"
@@ -2128,7 +2159,7 @@ function OwnerAddPage() {
             />
           </label>
           <label>
-            Category
+            {t("ownerAdd.category")}
             <input
               value={form.category}
               onChange={(event) => updateField("category", event.target.value)}
@@ -2136,20 +2167,18 @@ function OwnerAddPage() {
             />
           </label>
           <label className="full-row">
-            Custom badges
+            {t("ownerAdd.customBadges")}
             <input
               value={form.customBadges}
               onChange={(event) => updateField("customBadges", event.target.value)}
               placeholder="e.g. Chef's pick, Spicy (comma-separated)"
             />
-            <span className="owner-field-hint">
-              Popular and Seasonal/New (new items on the menu under 14 days) are automatic from sales and menu age — do not type them here.
-            </span>
+            <span className="owner-field-hint">{t("ownerAdd.customBadgesHint")}</span>
           </label>
 
           <fieldset className="owner-image-fieldset full-row">
-            <legend>Dish image</legend>
-            <div className="owner-image-source-options" role="radiogroup" aria-label="Image source">
+            <legend>{t("ownerAdd.dishImage")}</legend>
+            <div className="owner-image-source-options" role="radiogroup" aria-label={t("ownerAdd.imageSourceAria")}>
               <label className="owner-image-radio">
                 <input
                   type="radio"
@@ -2157,7 +2186,7 @@ function OwnerAddPage() {
                   checked={imageSource === "url"}
                   onChange={() => setImageSourceMode("url")}
                 />
-                <span>Image URL</span>
+                <span>{t("ownerAdd.imageUrl")}</span>
               </label>
               <label className="owner-image-radio">
                 <input
@@ -2166,13 +2195,13 @@ function OwnerAddPage() {
                   checked={imageSource === "upload"}
                   onChange={() => setImageSourceMode("upload")}
                 />
-                <span>Upload image</span>
+                <span>{t("ownerAdd.uploadImage")}</span>
               </label>
             </div>
 
             {imageSource === "url" ? (
               <label className="owner-image-url-label">
-                Link
+                {t("ownerAdd.link")}
                 <input
                   value={form.image.startsWith("data:") ? "" : form.image}
                   onChange={(event) => updateField("image", event.target.value)}
@@ -2186,28 +2215,28 @@ function OwnerAddPage() {
                     <img src={form.image} alt="" className="owner-image-thumb" />
                     <div className="owner-image-upload-actions">
                       <button type="button" className="primary-cta small" onClick={() => setUploadModalOpen(true)}>
-                        Change image
+                        {t("ownerAdd.changeImage")}
                       </button>
                       <button type="button" className="owner-image-clear" onClick={() => updateField("image", "")}>
-                        Clear
+                        {t("ownerAdd.clear")}
                       </button>
                     </div>
                   </div>
                 ) : (
                   <>
-                    <p className="owner-image-upload-empty">No image selected yet.</p>
+                    <p className="owner-image-upload-empty">{t("ownerAdd.noImageYet")}</p>
                     <button type="button" className="primary-cta small owner-upload-open-btn" onClick={() => setUploadModalOpen(true)}>
-                      Upload image…
+                      {t("ownerAdd.uploadOpen")}
                     </button>
                   </>
                 )}
-                <p className="owner-image-upload-hint">Opens a window where you can drag one photo or pick it from your files.</p>
+                <p className="owner-image-upload-hint">{t("ownerAdd.uploadHintBlock")}</p>
               </div>
             )}
           </fieldset>
 
           <label className="full-row">
-            Description
+            {t("ownerAdd.description")}
             <textarea
               value={form.description}
               onChange={(event) => updateField("description", event.target.value)}
@@ -2218,21 +2247,19 @@ function OwnerAddPage() {
           </label>
           <button className="primary-cta full-row" type="submit">
             <Icon name="plus" />
-            Add to preview
+            {t("ownerAdd.addPreview")}
           </button>
         </form>
       </div>
 
       <aside className="owner-add-preview-column" aria-labelledby="owner-preview-title">
         <div className="owner-add-preview-head">
-          <h3 id="owner-preview-title">New dishes preview</h3>
-          <p className="owner-add-preview-sub">
-            Queued items appear here. Submit when you are ready to publish them to the live menu.
-          </p>
+          <h3 id="owner-preview-title">{t("ownerAdd.previewTitle")}</h3>
+          <p className="owner-add-preview-sub">{t("ownerAdd.previewSub")}</p>
         </div>
 
         {stagedDishes.length === 0 ? (
-          <p className="owner-add-preview-empty">Nothing queued yet. Fill the form and choose &quot;Add to preview&quot;.</p>
+          <p className="owner-add-preview-empty">{t("ownerAdd.previewEmpty")}</p>
         ) : (
           <ul className="owner-add-preview-list">
             {stagedDishes.map((dish) => (
@@ -2245,7 +2272,7 @@ function OwnerAddPage() {
                   </p>
                   <p className="owner-add-preview-desc">{dish.description}</p>
                 </div>
-                <button type="button" className="owner-add-preview-remove" onClick={() => removeStaged(dish.id)} aria-label={`Remove ${dish.name} from preview`}>
+                <button type="button" className="owner-add-preview-remove" onClick={() => removeStaged(dish.id)} aria-label={t("ownerAdd.removePreviewAria", { name: dish.name })}>
                   <Icon name="x" />
                 </button>
               </li>
@@ -2260,9 +2287,9 @@ function OwnerAddPage() {
             disabled={!stagedDishes.length}
             onClick={submitStagedToMenu}
           >
-            Submit to menu
+            {t("ownerAdd.submitMenu")}
           </button>
-          <p className="owner-add-preview-footnote">{stagedDishes.length} queued</p>
+          <p className="owner-add-preview-footnote">{t("ownerAdd.queued", { count: stagedDishes.length })}</p>
         </div>
       </aside>
 
@@ -2279,25 +2306,26 @@ function OwnerAddPage() {
 }
 
 function OwnerEditMenuPage() {
+  const { t } = useI18n();
   const { menu, orders, onDeleteMenuItem, onToggleMenuItemAvailable } = useOutletContext();
   const navigate = useNavigate();
 
   function confirmDelete(item) {
-    if (!window.confirm(`Delete “${item.name}” from the menu? This cannot be undone.`)) return;
+    if (!window.confirm(t("ownerEdit.confirmDelete", { name: item.name }))) return;
     onDeleteMenuItem(item.id);
   }
 
   return (
     <div className="owner-edit-hub">
       <div className="section-heading compact">
-        <p className="eyebrow">Edit menu</p>
-        <h3>All dishes</h3>
-        <p>Open a dish to change its details, or use the row actions to hide it from guests or remove it.</p>
+        <p className="eyebrow">{t("ownerEdit.eyebrow")}</p>
+        <h3>{t("ownerEdit.allDishes")}</h3>
+        <p>{t("ownerEdit.intro")}</p>
       </div>
 
       <ul className="owner-edit-list">
         {menu.length === 0 ? (
-          <li className="empty-state">No dishes yet. Add one on the Add dish tab.</li>
+          <li className="empty-state">{t("ownerEdit.emptyList")}</li>
         ) : (
           menu.map((item) => (
           <li key={item.id} className={`owner-edit-row${item.available === false ? " owner-edit-row-hidden" : ""}`}>
@@ -2308,19 +2336,19 @@ function OwnerEditMenuPage() {
                 <p>
                   {item.category} · {formatPrice(item.price)} · {getAllBadgesForItem(item, { orders, menu }).join(" · ") || "—"}
                 </p>
-                {item.available === false ? <span className="owner-hidden-pill">Hidden from menu</span> : null}
+                {item.available === false ? <span className="owner-hidden-pill">{t("ownerEdit.hiddenPill")}</span> : null}
               </div>
             </div>
             <div className="owner-edit-row-actions">
               <button type="button" className="secondary-cta small" onClick={() => navigate(`/owner/edit/${item.id}`)}>
-                Edit details
+                {t("ownerEdit.editDetails")}
               </button>
               <button type="button" className="secondary-cta small" onClick={() => onToggleMenuItemAvailable(item.id)}>
-                {item.available === false ? "Show on menu" : "Hide from menu"}
+                {item.available === false ? t("ownerEdit.showMenu") : t("ownerEdit.hideMenu")}
               </button>
               <button type="button" className="decline-button small" onClick={() => confirmDelete(item)}>
                 <Icon name="x" />
-                Delete
+                {t("ownerEdit.delete")}
               </button>
             </div>
           </li>
@@ -2332,6 +2360,7 @@ function OwnerEditMenuPage() {
 }
 
 function OwnerEditDishPage() {
+  const { t } = useI18n();
   const { menu, orders, onUpdateMenuItem } = useOutletContext();
   const { itemId } = useParams();
   const navigate = useNavigate();
@@ -2412,7 +2441,7 @@ function OwnerEditDishPage() {
   if (!item || !form) {
     return (
       <div className="owner-edit-hub">
-        <p className="empty-state">Loading dish…</p>
+        <p className="empty-state">{t("ownerEdit.loading")}</p>
       </div>
     );
   }
@@ -2421,14 +2450,14 @@ function OwnerEditDishPage() {
     <div className="owner-edit-dish">
       <div className="owner-edit-dish-header">
         <button type="button" className="secondary-cta small" onClick={() => navigate("/owner/edit")}>
-          ← Back to list
+          {t("ownerEdit.backList")}
         </button>
-        <h3>Edit dish</h3>
+        <h3>{t("ownerEdit.editDishTitle")}</h3>
       </div>
 
       <form className="owner-form owner-edit-dish-form" onSubmit={submitUpdate}>
         <label>
-          Dish name
+          {t("ownerAdd.dishName")}
           <input
             value={form.name}
             onChange={(event) => updateField("name", event.target.value)}
@@ -2437,7 +2466,7 @@ function OwnerEditDishPage() {
           />
         </label>
         <label>
-          Price
+          {t("ownerAdd.price")}
           <input
             type="number"
             min="0"
@@ -2449,7 +2478,7 @@ function OwnerEditDishPage() {
           />
         </label>
         <label>
-          Category
+          {t("ownerAdd.category")}
           <input
             value={form.category}
             onChange={(event) => updateField("category", event.target.value)}
@@ -2457,23 +2486,21 @@ function OwnerEditDishPage() {
           />
         </label>
         <label className="full-row">
-          Custom badges
+          {t("ownerAdd.customBadges")}
           <input
             value={form.customBadges}
             onChange={(event) => updateField("customBadges", event.target.value)}
             placeholder="e.g. Chef's pick, Spicy (comma-separated)"
           />
-          <span className="owner-field-hint">
-            Popular and Seasonal/New are automatic — do not type them here. They appear below as guests will see them.
-          </span>
+          <span className="owner-field-hint">{t("ownerEdit.customBadgesEditHint")}</span>
         </label>
         <p className="owner-live-badges-preview" aria-live="polite">
-          <strong>Live badges (guest view):</strong> {liveBadgePreview.length ? liveBadgePreview.join(" · ") : "—"}
+          <strong>{t("ownerEdit.liveBadges")}</strong> {liveBadgePreview.length ? liveBadgePreview.join(" · ") : "—"}
         </p>
 
         <fieldset className="owner-image-fieldset full-row">
-          <legend>Dish image</legend>
-          <div className="owner-image-source-options" role="radiogroup" aria-label="Image source">
+          <legend>{t("ownerEdit.legendImage")}</legend>
+          <div className="owner-image-source-options" role="radiogroup" aria-label={t("ownerEdit.imageRadiogroupAria")}>
             <label className="owner-image-radio">
               <input
                 type="radio"
@@ -2481,7 +2508,7 @@ function OwnerEditDishPage() {
                 checked={imageSource === "url"}
                 onChange={() => setImageSourceMode("url")}
               />
-              <span>Image URL</span>
+              <span>{t("ownerAdd.imageUrl")}</span>
             </label>
             <label className="owner-image-radio">
               <input
@@ -2490,13 +2517,13 @@ function OwnerEditDishPage() {
                 checked={imageSource === "upload"}
                 onChange={() => setImageSourceMode("upload")}
               />
-              <span>Upload image</span>
+              <span>{t("ownerAdd.uploadImage")}</span>
             </label>
           </div>
 
           {imageSource === "url" ? (
             <label className="owner-image-url-label">
-              Link
+              {t("ownerAdd.link")}
               <input
                 value={form.image.startsWith("data:") ? "" : form.image}
                 onChange={(event) => updateField("image", event.target.value)}
@@ -2510,28 +2537,28 @@ function OwnerEditDishPage() {
                   <img src={form.image} alt="" className="owner-image-thumb" />
                   <div className="owner-image-upload-actions">
                     <button type="button" className="primary-cta small" onClick={() => setUploadModalOpen(true)}>
-                      Change image
+                      {t("ownerEdit.changeImageBtn")}
                     </button>
                     <button type="button" className="owner-image-clear" onClick={() => updateField("image", "")}>
-                      Clear
+                      {t("ownerEdit.clearImage")}
                     </button>
                   </div>
                 </div>
               ) : (
                 <>
-                  <p className="owner-image-upload-empty">No image selected yet.</p>
+                  <p className="owner-image-upload-empty">{t("ownerEdit.noImageSelected")}</p>
                   <button type="button" className="primary-cta small owner-upload-open-btn" onClick={() => setUploadModalOpen(true)}>
-                    Upload image…
+                    {t("ownerEdit.uploadImageBtn")}
                   </button>
                 </>
               )}
-              <p className="owner-image-upload-hint">Opens a window where you can drag one photo or pick it from your files.</p>
+              <p className="owner-image-upload-hint">{t("ownerEdit.uploadHint")}</p>
             </div>
           )}
         </fieldset>
 
         <label className="full-row">
-          Description
+          {t("ownerAdd.description")}
           <textarea
             value={form.description}
             onChange={(event) => updateField("description", event.target.value)}
@@ -2542,10 +2569,10 @@ function OwnerEditDishPage() {
         </label>
         <div className="owner-edit-dish-actions full-row">
           <button className="primary-cta" type="submit">
-            Save changes
+            {t("ownerEdit.save")}
           </button>
           <button type="button" className="secondary-cta" onClick={() => navigate("/owner/edit")}>
-            Cancel
+            {t("ownerEdit.cancel")}
           </button>
         </div>
       </form>
@@ -2563,31 +2590,32 @@ function OwnerEditDishPage() {
 }
 
 function LocationPage() {
+  const { t } = useI18n();
   return (
     <section className="content-section page-section" aria-labelledby="location-title">
       <div className="section-heading">
-        <p className="eyebrow">Visit us</p>
-        <h2 id="location-title">Chicago Demo Store</h2>
-        <p>Hours, contact, and service notes — swap in live data from your CMS or Supabase when you deploy.</p>
+        <p className="eyebrow">{t("location.eyebrow")}</p>
+        <h2 id="location-title">{t("location.title")}</h2>
+        <p>{t("location.body")}</p>
       </div>
       <div className="location-layout">
         <div className="location-panel">
           <Icon name="pin" />
-          <h3>Address</h3>
-          <p className="location-address">1200 W Demo Street, Chicago, IL 60607</p>
-          <p className="location-meta">Street parking and Blue Line within two blocks.</p>
-          <dl className="location-hours" aria-label="Opening hours">
+          <h3>{t("location.addressTitle")}</h3>
+          <p className="location-address">{t("location.addressLine")}</p>
+          <p className="location-meta">{t("location.addressMeta")}</p>
+          <dl className="location-hours" aria-label={t("location.hoursAria")}>
             <div className="location-hours-row">
-              <dt>Mon–Thu</dt>
-              <dd>7:00 AM – 10:00 PM</dd>
+              <dt>{t("location.monThu")}</dt>
+              <dd>{t("location.hoursMonThu")}</dd>
             </div>
             <div className="location-hours-row">
-              <dt>Fri–Sat</dt>
-              <dd>7:00 AM – 11:00 PM</dd>
+              <dt>{t("location.friSat")}</dt>
+              <dd>{t("location.hoursFriSat")}</dd>
             </div>
             <div className="location-hours-row">
-              <dt>Sunday</dt>
-              <dd>8:00 AM – 9:00 PM</dd>
+              <dt>{t("location.sunday")}</dt>
+              <dd>{t("location.hoursSun")}</dd>
             </div>
           </dl>
           <div className="location-contact">
@@ -2595,13 +2623,13 @@ function LocationPage() {
             <span aria-hidden="true"> · </span>
             <a href="mailto:hello@dinerdesk.demo">hello@dinerdesk.demo</a>
           </div>
-          <p className="location-disclaimer">Demo contact details — replace before going live.</p>
+          <p className="location-disclaimer">{t("location.disclaimer")}</p>
         </div>
         <div className="location-panel red-panel">
-          <h3>Pickup, dine-in &amp; diet</h3>
-          <p>Orders from this app appear as tickets for staff to accept before the kitchen starts.</p>
-          <p>Add allergy, spice, or portion notes in the cart — they print on the ticket.</p>
-          <p className="location-a11y-note">Ask your server about gluten-friendly or dairy-free swaps; not all modifiers are in the demo menu.</p>
+          <h3>{t("location.panel2Title")}</h3>
+          <p>{t("location.panel2p1")}</p>
+          <p>{t("location.panel2p2")}</p>
+          <p className="location-a11y-note">{t("location.panel2a11y")}</p>
         </div>
       </div>
     </section>
@@ -2609,50 +2637,58 @@ function LocationPage() {
 }
 
 function ProfilePage({ orders, session, onLogout }) {
-  const roleLabel =
-    session?.role === "staff" ? "员工" : session?.role === "owner" ? "老板" : session?.role === "customer" ? "顾客" : null;
+  const { t } = useI18n();
+  const roleKey =
+    session?.role === "staff"
+      ? "profile.roleStaff"
+      : session?.role === "owner"
+        ? "profile.roleOwner"
+        : session?.role === "customer"
+          ? "profile.roleCustomer"
+          : null;
+  const roleLabel = roleKey ? t(roleKey) : "";
 
   return (
     <section className="content-section page-section" aria-labelledby="profile-title">
       <div className="section-heading">
-        <p className="eyebrow">Profile</p>
-        <h2 id="profile-title">{session ? `已登录：${session.username}` : "游客浏览"}</h2>
+        <p className="eyebrow">{t("profile.eyebrow")}</p>
+        <h2 id="profile-title">
+          {session ? t("profile.titleLogged", { name: session.username }) : t("profile.titleGuest")}
+        </h2>
         <p>
-          {session
-            ? `当前身份为${roleLabel}。顾客可不登录使用菜单与购物车；员工与老板入口需登录对应账号。`
-            : "未登录时仍可浏览菜单、加购与结账（演示数据保存在本机）。登录后可从顶栏「Mode」进入员工或老板模式（需相应账号）。"}
+          {session ? t("profile.bodyStaff", { role: roleLabel }) : t("profile.bodyGuest")}
         </p>
       </div>
       {session ? (
         <div className="profile-auth-actions">
           <button type="button" className="secondary-cta" onClick={onLogout}>
-            退出登录
+            {t("profile.logout")}
           </button>
         </div>
       ) : (
         <div className="profile-auth-actions">
           <Link className="primary-cta" to="/login">
-            登录
+            {t("profile.login")}
           </Link>
           <Link className="secondary-cta" to="/register">
-            注册顾客账号
+            {t("profile.register")}
           </Link>
         </div>
       )}
       <div className="profile-summary">
         <strong>{orders.length}</strong>
-        <span>Total demo orders saved in this browser</span>
+        <span>{t("profile.orderCountLabel")}</span>
       </div>
       {orders.length === 0 ? (
         <div className="empty-state empty-state--soft profile-empty-panel">
-          <p className="empty-state-title">No orders in this browser yet</p>
-          <p className="empty-state-hint">Place an order from the menu and check out — your demo history will show here.</p>
+          <p className="empty-state-title">{t("profile.emptyTitle")}</p>
+          <p className="empty-state-hint">{t("profile.emptyHint")}</p>
           <Link className="primary-cta" to="/menu">
-            Go to menu
+            {t("profile.goMenu")}
           </Link>
         </div>
       ) : (
-        <p className="profile-footnote">Demo data stays in localStorage on this device until you clear site data.</p>
+        <p className="profile-footnote">{t("profile.footnote")}</p>
       )}
     </section>
   );

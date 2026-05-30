@@ -53,6 +53,13 @@ function saveRegisteredCustomers(list) {
   window.localStorage.setItem(AUTH_CUSTOMERS_KEY, JSON.stringify(list));
 }
 
+/** 带 code 的错误，供 UI 层用 i18n 翻译（接入后端时可改为 API 错误码） */
+export function authError(code) {
+  const err = new Error(code);
+  err.code = code;
+  return err;
+}
+
 /**
  * 登录（后期改为 `POST /api/auth/login` 等）
  * @returns {Promise<{ id: string, username: string, role: 'customer'|'staff'|'owner' }>}
@@ -61,7 +68,7 @@ export async function login({ username, password }) {
   await Promise.resolve();
   const u = String(username ?? "").trim();
   const p = String(password ?? "");
-  if (!u || !p) throw new Error("请输入用户名和密码。");
+  if (!u || !p) throw authError("AUTH_EMPTY");
 
   if (u === DEMO_STAFF_USERNAME && p === DEMO_STAFF_PASSWORD) {
     const session = { id: "demo-staff", username: u, role: "staff" };
@@ -76,13 +83,13 @@ export async function login({ username, password }) {
 
   const reserved = new Set([DEMO_STAFF_USERNAME.toLowerCase(), DEMO_OWNER_USERNAME.toLowerCase()]);
   if (reserved.has(u.toLowerCase())) {
-    throw new Error("该用户名为系统保留，请使用员工或老板入口登录。");
+    throw authError("AUTH_RESERVED_LOGIN");
   }
 
   const customers = loadRegisteredCustomers();
   const found = customers.find((c) => c.username.toLowerCase() === u.toLowerCase());
   if (!found || found.password !== p) {
-    throw new Error("用户名或密码不正确。");
+    throw authError("AUTH_BAD_CREDENTIALS");
   }
   const session = { id: found.id, username: found.username, role: "customer" };
   persistSession(session);
@@ -97,18 +104,18 @@ export async function registerCustomer({ username, password }) {
   await Promise.resolve();
   const u = String(username ?? "").trim();
   const p = String(password ?? "");
-  if (u.length < 3) throw new Error("用户名至少 3 个字符。");
-  if (p.length < 4) throw new Error("密码至少 4 个字符。");
+  if (u.length < 3) throw authError("REG_USERNAME_SHORT");
+  if (p.length < 4) throw authError("REG_PASSWORD_SHORT");
 
   const lower = u.toLowerCase();
   const reserved = new Set([DEMO_STAFF_USERNAME.toLowerCase(), DEMO_OWNER_USERNAME.toLowerCase(), "worker", "boss"]);
   if (reserved.has(lower)) {
-    throw new Error("该用户名不可用。");
+    throw authError("REG_RESERVED");
   }
 
   const customers = loadRegisteredCustomers();
   if (customers.some((c) => c.username.toLowerCase() === lower)) {
-    throw new Error("该用户名已被注册。");
+    throw authError("REG_USERNAME_TAKEN");
   }
 
   const row = { id: `cust-${Date.now()}`, username: u, password: p };
