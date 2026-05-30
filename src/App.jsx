@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
+import { Link, NavLink, Route, Routes, useNavigate } from "react-router-dom";
 
-const STORAGE_KEY = "diner-desk-state-v1";
+const STORAGE_KEY = "diner-desk-state-v2";
 
 const starterMenu = [
   {
@@ -12,6 +13,7 @@ const starterMenu = [
     description:
       "Golden pancakes, soft eggs, crispy bacon, and maple butter for an all-day breakfast plate.",
     category: "Breakfast",
+    popularity: 98,
     available: true,
     reviews: [
       {
@@ -26,11 +28,12 @@ const starterMenu = [
     id: "red-basket-burger",
     name: "Red Basket Burger",
     price: 14.49,
-    badge: "New",
+    badge: "Popular",
     image: "/assets/diner-burger.png",
     description:
       "A cheddar burger with lettuce, tomato, pickles, house sauce, and a side of hot fries.",
     category: "Burgers",
+    popularity: 94,
     available: true,
     reviews: [
       {
@@ -38,6 +41,46 @@ const starterMenu = [
         author: "Jay",
         rating: 4,
         text: "Big flavor and the fries were fresh.",
+      },
+    ],
+  },
+  {
+    id: "sunrise-skillet",
+    name: "Sunrise Skillet",
+    price: 13.79,
+    badge: "Hot",
+    image: "/assets/pancake-breakfast.png",
+    description:
+      "Eggs, potatoes, bacon, and warm breakfast sauce built for a fast morning order.",
+    category: "Breakfast",
+    popularity: 89,
+    available: true,
+    reviews: [
+      {
+        id: "review-3",
+        author: "Noah",
+        rating: 5,
+        text: "Filling breakfast and easy to share.",
+      },
+    ],
+  },
+  {
+    id: "late-night-burger",
+    name: "Late-Night Burger",
+    price: 15.25,
+    badge: "New",
+    image: "/assets/diner-burger.png",
+    description:
+      "Double cheddar, crisp pickles, diner sauce, and fries for after-hours cravings.",
+    category: "Burgers",
+    popularity: 86,
+    available: true,
+    reviews: [
+      {
+        id: "review-4",
+        author: "Lena",
+        rating: 4,
+        text: "Great sauce and the portion felt right.",
       },
     ],
   },
@@ -49,9 +92,9 @@ const initialState = {
 };
 
 const modes = [
-  { id: "customer", label: "客户模式" },
-  { id: "staff", label: "员工模式" },
-  { id: "owner", label: "老板模式" },
+  { id: "customer", label: "\u5ba2\u6237\u6a21\u5f0f", path: "/menu" },
+  { id: "staff", label: "\u5458\u5de5\u6a21\u5f0f", path: "/orders" },
+  { id: "owner", label: "\u8001\u677f\u6a21\u5f0f", path: "/owner" },
 ];
 
 function loadState() {
@@ -70,8 +113,8 @@ function formatPrice(value) {
 function StarRating({ value }) {
   return (
     <span className="stars" aria-label={`${value} out of 5 stars`}>
-      {"★".repeat(value)}
-      <span>{"☆".repeat(5 - value)}</span>
+      {"\u2605".repeat(value)}
+      <span>{"\u2606".repeat(5 - value)}</span>
     </span>
   );
 }
@@ -95,6 +138,7 @@ function Icon({ name }) {
 }
 
 function App() {
+  const navigate = useNavigate();
   const [mode, setMode] = useState("customer");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [state, setState] = useState(loadState);
@@ -118,6 +162,7 @@ function App() {
           customerName: "Walk-in Guest",
           notes: "No special request",
           status: "new",
+          ready: false,
           createdAt: new Date().toISOString(),
         },
         ...current.orders,
@@ -129,7 +174,16 @@ function App() {
     setState((current) => ({
       ...current,
       orders: current.orders.map((order) =>
-        order.id === orderId ? { ...order, status } : order,
+        order.id === orderId ? { ...order, status, ready: false } : order,
+      ),
+    }));
+  }
+
+  function markOrderReady(orderId) {
+    setState((current) => ({
+      ...current,
+      orders: current.orders.map((order) =>
+        order.id === orderId ? { ...order, ready: true } : order,
       ),
     }));
   }
@@ -153,6 +207,7 @@ function App() {
           ...item,
           id: `dish-${Date.now()}`,
           image: item.image || "/assets/diner-burger.png",
+          popularity: 70,
           available: true,
           reviews: [],
         },
@@ -161,38 +216,50 @@ function App() {
     }));
   }
 
-  const activeView = {
-    customer: (
-      <CustomerMode menu={state.menu} orders={state.orders} onOrder={addOrder} onReview={addReview} />
-    ),
-    staff: <StaffMode orders={state.orders} onStatusChange={updateOrderStatus} />,
-    owner: <OwnerMode menu={state.menu} onAddMenuItem={addMenuItem} />,
-  }[mode];
+  function selectMode(item) {
+    setMode(item.id);
+    navigate(item.path);
+  }
 
   return (
     <div className="app-shell">
       <header className="site-header">
-        <a className="brand" href="#top" aria-label="Diner Desk home">
+        <Link className="brand" to="/" aria-label="Diner Desk home">
           <span className="brand-mark">D</span>
           <span>Diner Desk</span>
-        </a>
+        </Link>
 
         <nav className="desktop-nav" aria-label="Primary navigation">
-          <a href="#menu">Menu</a>
-          <a href="#orders">Orders</a>
-          <a href="#rewards">Rewards</a>
-          <a href="#location">Location</a>
+          <NavLink to="/menu">Menu</NavLink>
+          <NavLink to="/location">Location</NavLink>
         </nav>
 
         <div className="header-actions">
-          <button className="icon-button" type="button" aria-label="Profile">
+          <button
+            className="icon-button"
+            type="button"
+            aria-label="Profile"
+            onClick={() => navigate("/profile")}
+          >
             <Icon name="user" />
           </button>
-          <button className="cart-button" type="button" aria-label={`${cartCount} new orders`}>
+          <button
+            className="cart-button"
+            type="button"
+            aria-label={`${cartCount} new orders`}
+            onClick={() => navigate("/orders")}
+          >
             <Icon name="cart" />
             <span>{cartCount}</span>
           </button>
-          <button className="order-button" type="button" onClick={() => setMode("customer")}>
+          <button
+            className="order-button"
+            type="button"
+            onClick={() => {
+              setMode("customer");
+              navigate("/menu");
+            }}
+          >
             Order Now
           </button>
           <details className="mode-menu-wrap">
@@ -205,7 +272,7 @@ function App() {
                   type="button"
                   role="menuitem"
                   onClick={(event) => {
-                    setMode(item.id);
+                    selectMode(item);
                     event.currentTarget.closest("details")?.removeAttribute("open");
                   }}
                 >
@@ -241,89 +308,130 @@ function App() {
             >
               <Icon name="x" />
             </button>
-            {modes.map((item) => (
-              <button
-                key={item.id}
-                className={mode === item.id ? "drawer-link active" : "drawer-link"}
-                type="button"
-                onClick={() => {
-                  setMode(item.id);
-                  setDrawerOpen(false);
-                }}
-              >
-                {item.label}
-              </button>
-            ))}
+            <MobileLink to="/menu" onDone={() => setDrawerOpen(false)}>
+              Menu
+            </MobileLink>
+            <MobileLink to="/location" onDone={() => setDrawerOpen(false)}>
+              Location
+            </MobileLink>
+            <div className="drawer-mode-group">
+              {modes.map((item) => (
+                <button
+                  key={item.id}
+                  className={mode === item.id ? "drawer-link active" : "drawer-link"}
+                  type="button"
+                  onClick={() => {
+                    selectMode(item);
+                    setDrawerOpen(false);
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
           </aside>
         </div>
       )}
 
-      <main id="top">
-        <section className="hero" aria-labelledby="hero-title">
-          <div className="hero-copy">
-            <p className="eyebrow">Open table ordering</p>
-            <h1 id="hero-title">Big Flavor, Easy Ordering</h1>
-            <p>
-              Browse two diner favorites, send orders to staff, and manage dishes from one
-              Netlify-ready React app.
-            </p>
-            <div className="hero-actions">
-              <button className="primary-cta" type="button" onClick={() => setMode("customer")}>
-                Start Your Order
-              </button>
-              <button className="secondary-cta" type="button" onClick={() => setMode("staff")}>
-                View Orders
-              </button>
-            </div>
-          </div>
-          <div className="hero-food" aria-label="Featured diner dishes">
-            <img src="/assets/pancake-breakfast.png" alt="Pancake breakfast platter" />
-            <img src="/assets/diner-burger.png" alt="Cheeseburger and fries meal" />
-          </div>
-        </section>
-
-        {activeView}
-
-        <section className="rewards-band" id="rewards">
-          <div>
-            <p className="eyebrow">Future Supabase upgrade</p>
-            <h2>Ready for real restaurant data</h2>
-          </div>
-          <p>
-            The current app uses browser storage. Replace the storage helpers with Supabase tables
-            for menu items, orders, and reviews when your API is ready.
-          </p>
-          <button className="secondary-cta dark" type="button" onClick={() => setMode("owner")}>
-            Add Dish
-          </button>
-        </section>
+      <main>
+        <Routes>
+          <Route path="/" element={<HomePage menu={state.menu} orders={state.orders} onOrder={addOrder} />} />
+          <Route
+            path="/menu"
+            element={<MenuPage menu={state.menu} orders={state.orders} onOrder={addOrder} onReview={addReview} />}
+          />
+          <Route
+            path="/orders"
+            element={
+              <OrdersPage
+                mode={mode}
+                orders={state.orders}
+                onStatusChange={updateOrderStatus}
+                onReady={markOrderReady}
+              />
+            }
+          />
+          <Route path="/location" element={<LocationPage />} />
+          <Route path="/profile" element={<ProfilePage orders={state.orders} />} />
+          <Route path="/owner" element={<OwnerMode menu={state.menu} onAddMenuItem={addMenuItem} />} />
+        </Routes>
       </main>
 
-      <footer className="site-footer" id="location">
+      <footer className="site-footer">
         <div>
           <strong>Diner Desk</strong>
           <p>Warm diner service, clear ordering, fast staff action.</p>
         </div>
         <div className="footer-links">
-          <a href="#menu">Menu</a>
-          <a href="#orders">Orders</a>
-          <a href="#rewards">Rewards</a>
-          <a href="#location">
+          <Link to="/menu">Menu</Link>
+          <Link to="/location">
             <Icon name="pin" />
             Chicago Demo Store
-          </a>
+          </Link>
         </div>
       </footer>
     </div>
   );
 }
 
-function CustomerMode({ menu, orders, onOrder, onReview }) {
+function MobileLink({ to, onDone, children }) {
   return (
-    <section className="content-section" id="menu" aria-labelledby="customer-title">
+    <NavLink className="drawer-link" to={to} onClick={onDone}>
+      {children}
+    </NavLink>
+  );
+}
+
+function HomePage({ menu, orders, onOrder }) {
+  const popularItems = [...menu].sort((a, b) => b.popularity - a.popularity).slice(0, 4);
+
+  return (
+    <>
+      <section className="hero" aria-labelledby="hero-title">
+        <div className="hero-copy">
+          <p className="eyebrow">Open table ordering</p>
+          <h1 id="hero-title">Big Flavor, Easy Ordering</h1>
+          <p>
+            Browse popular diner favorites, start an order fast, and keep the kitchen connected.
+          </p>
+          <div className="hero-actions">
+            <Link className="primary-cta" to="/menu">
+              Start Your Order
+            </Link>
+            <Link className="secondary-cta" to="/location">
+              Find Location
+            </Link>
+          </div>
+        </div>
+        <div className="hero-food" aria-label="Featured diner dishes">
+          <img src="/assets/pancake-breakfast.png" alt="Pancake breakfast platter" />
+          <img src="/assets/diner-burger.png" alt="Cheeseburger and fries meal" />
+        </div>
+      </section>
+
+      <section className="content-section" aria-labelledby="popular-title">
+        <div className="section-heading">
+          <p className="eyebrow">Most popular</p>
+          <h2 id="popular-title">Guest favorites</h2>
+          <p>Four high-demand dishes are ready on the first screen after the hero.</p>
+        </div>
+        <div className="menu-grid">
+          {popularItems.map((item) => (
+            <MenuCard key={item.id} item={item} onOrder={onOrder} />
+          ))}
+        </div>
+        <OrderHistory orders={orders} />
+      </section>
+    </>
+  );
+}
+
+function MenuPage({ menu, orders, onOrder, onReview }) {
+  return (
+    <section className="content-section page-section" aria-labelledby="menu-title">
       <div className="section-heading">
-        <p className="eyebrow">Customer mode</p>
-        <h2 id="customer-title">Order your favorites</h2>
+        <p className="eyebrow">Full menu</p>
+        <h2 id="menu-title">Order your favorites</h2>
         <p>Choose a dish, place an order, and leave a review for the kitchen.</p>
       </div>
 
@@ -352,7 +460,7 @@ function MenuCard({ item, onOrder, onReview }) {
 
   function submitReview(event) {
     event.preventDefault();
-    if (!text.trim()) return;
+    if (!text.trim() || !onReview) return;
     onReview(item.id, {
       author: author.trim() || "Guest",
       rating: Number(rating),
@@ -381,16 +489,20 @@ function MenuCard({ item, onOrder, onReview }) {
         <p>{item.description}</p>
         <div className="rating-line">
           {averageRating ? <StarRating value={averageRating} /> : <span>No reviews yet</span>}
-          <span>{item.reviews.length} review{item.reviews.length === 1 ? "" : "s"}</span>
+          <span>
+            {item.reviews.length} review{item.reviews.length === 1 ? "" : "s"}
+          </span>
         </div>
         <div className="card-actions">
           <button className="primary-cta small" type="button" onClick={() => onOrder(item)}>
             <Icon name="plus" />
             Add Order
           </button>
-          <button className="secondary-cta small" type="button" onClick={() => setReviewOpen(!reviewOpen)}>
-            Review
-          </button>
+          {onReview && (
+            <button className="secondary-cta small" type="button" onClick={() => setReviewOpen(!reviewOpen)}>
+              Review
+            </button>
+          )}
         </div>
         {reviewOpen && (
           <form className="review-form" onSubmit={submitReview}>
@@ -441,7 +553,7 @@ function OrderHistory({ orders }) {
   const recentOrders = orders.slice(0, 4);
 
   return (
-    <div className="order-history" id="orders">
+    <div className="order-history">
       <div className="section-heading compact">
         <p className="eyebrow">Live ticket board</p>
         <h2>Recent orders</h2>
@@ -459,12 +571,29 @@ function OrderHistory({ orders }) {
   );
 }
 
-function StaffMode({ orders, onStatusChange }) {
+function OrdersPage({ mode, orders, onStatusChange, onReady }) {
+  if (mode === "staff") {
+    return <StaffMode orders={orders} onStatusChange={onStatusChange} onReady={onReady} />;
+  }
+
+  return (
+    <section className="content-section page-section" aria-labelledby="orders-title">
+      <div className="section-heading">
+        <p className="eyebrow">Orders</p>
+        <h2 id="orders-title">Your order board</h2>
+        <p>Customer orders appear here first, then staff can switch modes and accept tickets.</p>
+      </div>
+      <OrderHistory orders={orders} />
+    </section>
+  );
+}
+
+function StaffMode({ orders, onStatusChange, onReady }) {
   const pending = orders.filter((order) => order.status === "new");
   const handled = orders.filter((order) => order.status !== "new");
 
   return (
-    <section className="content-section" id="orders" aria-labelledby="staff-title">
+    <section className="content-section page-section" aria-labelledby="staff-title">
       <div className="section-heading">
         <p className="eyebrow">Staff mode</p>
         <h2 id="staff-title">New customer orders</h2>
@@ -477,7 +606,7 @@ function StaffMode({ orders, onStatusChange }) {
           <div className="ticket-list">
             {pending.length ? (
               pending.map((order) => (
-                <OrderTicket key={order.id} order={order}>
+                <OrderTicket key={order.id} order={order} hideReadyState>
                   <button className="accept-button" type="button" onClick={() => onStatusChange(order.id, "accepted")}>
                     <Icon name="check" />
                     Accept
@@ -497,7 +626,13 @@ function StaffMode({ orders, onStatusChange }) {
           <h3 className="panel-title">Handled tickets</h3>
           <div className="ticket-list">
             {handled.length ? (
-              handled.map((order) => <OrderTicket key={order.id} order={order} />)
+              handled.map((order) => (
+                <OrderTicket
+                  key={order.id}
+                  order={order}
+                  onReady={order.status === "accepted" && !order.ready ? onReady : undefined}
+                />
+              ))
             ) : (
               <p className="empty-state">Accepted and declined tickets will appear here.</p>
             )}
@@ -508,20 +643,34 @@ function StaffMode({ orders, onStatusChange }) {
   );
 }
 
-function OrderTicket({ order, children }) {
+function OrderTicket({ order, children, onReady, hideReadyState = false }) {
+  const isReady = Boolean(order.ready);
+
   return (
     <article className={`ticket status-${order.status}`}>
       <div>
         <p className="ticket-meta">{new Date(order.createdAt).toLocaleString()}</p>
         <h3>{order.itemName}</h3>
         <p>
-          {order.quantity} item · {formatPrice(order.price)} · {order.customerName}
+          {order.quantity} item - {formatPrice(order.price)} - {order.customerName}
         </p>
         <p>{order.notes}</p>
       </div>
       <div className="ticket-footer">
-        <span className="status-pill">{order.status}</span>
-        {children && <div className="ticket-actions">{children}</div>}
+        <span className={`status-pill status-label-${order.status}`}>{order.status.toUpperCase()}</span>
+        <div className="ticket-actions">
+          {children}
+          {onReady && (
+            <button className="ready-button" type="button" onClick={() => onReady(order.id)}>
+              Ready
+            </button>
+          )}
+          {!hideReadyState && (
+            <span className={isReady ? "ready-pill ready" : "ready-pill not-ready"}>
+              {isReady ? "READY" : "NOT READY"}
+            </span>
+          )}
+        </div>
       </div>
     </article>
   );
@@ -563,7 +712,7 @@ function OwnerMode({ menu, onAddMenuItem }) {
   }
 
   return (
-    <section className="content-section" aria-labelledby="owner-title">
+    <section className="content-section page-section" aria-labelledby="owner-title">
       <div className="section-heading">
         <p className="eyebrow">Owner mode</p>
         <h2 id="owner-title">Build the menu</h2>
@@ -635,12 +784,54 @@ function OwnerMode({ menu, onAddMenuItem }) {
               <img src={item.image} alt="" />
               <div>
                 <strong>{item.name}</strong>
-                <p>{item.category} · {formatPrice(item.price)}</p>
+                <p>
+                  {item.category} - {formatPrice(item.price)}
+                </p>
               </div>
               <span className="badge subtle">{item.badge}</span>
             </div>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+function LocationPage() {
+  return (
+    <section className="content-section page-section" aria-labelledby="location-title">
+      <div className="section-heading">
+        <p className="eyebrow">Location</p>
+        <h2 id="location-title">Chicago Demo Store</h2>
+        <p>Use this page later for real store hours, delivery zones, and map data from Supabase.</p>
+      </div>
+      <div className="location-layout">
+        <div className="location-panel">
+          <Icon name="pin" />
+          <h3>Downtown Diner Counter</h3>
+          <p>1200 W Demo Street, Chicago, IL</p>
+          <p>Open daily - 7:00 AM - 11:00 PM</p>
+        </div>
+        <div className="location-panel red-panel">
+          <h3>Pickup and dine-in</h3>
+          <p>Orders from this demo app can be reviewed by staff before the ticket is accepted.</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ProfilePage({ orders }) {
+  return (
+    <section className="content-section page-section" aria-labelledby="profile-title">
+      <div className="section-heading">
+        <p className="eyebrow">Profile</p>
+        <h2 id="profile-title">Guest account</h2>
+        <p>This placeholder is ready for login and order history after authentication is added.</p>
+      </div>
+      <div className="profile-summary">
+        <strong>{orders.length}</strong>
+        <span>Total demo orders saved in this browser</span>
       </div>
     </section>
   );
