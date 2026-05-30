@@ -593,6 +593,72 @@ h3 {
   top: 14px;
 }
 
+.food-card-badges-wrap {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+.food-card-badges-wrap .badge {
+  position: static;
+}
+
+.badge-auto-popular {
+  background: var(--red);
+  color: var(--white);
+}
+
+.badge-auto-new {
+  background: #2e7d32;
+  color: var(--white);
+}
+
+.badge-auto-seasonal {
+  background: #5e35b1;
+  color: var(--white);
+}
+
+.badge-auto-seasonal-new {
+  background: #5e35b1;
+  color: var(--white);
+}
+
+.badge-custom {
+  background: var(--yellow);
+  color: var(--black);
+}
+
+.owner-field-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-gray);
+  line-height: 1.4;
+}
+
+.owner-live-badges-preview {
+  grid-column: 1 / -1;
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--cream);
+  font-size: 13px;
+  color: var(--text-gray);
+}
+
+.owner-live-badges-preview strong {
+  color: var(--black);
+  font-weight: 800;
+}
+
 .food-card-body {
   display: flex;
   flex: 1;

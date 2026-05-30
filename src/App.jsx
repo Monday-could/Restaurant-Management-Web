@@ -17,12 +17,23 @@ const STORAGE_KEY = "diner-desk-state-v2";
 /** Queued add-dish preview rows (owner); survives tab switches and refresh within the same browser tab. */
 const OWNER_STAGED_SESSION_KEY = "diner-desk-owner-staged-preview-v1";
 
+function migrateStagedDishFromSession(dish) {
+  if (!dish || typeof dish !== "object") return dish;
+  if (Array.isArray(dish.manualBadges)) {
+    return { ...dish, manualBadges: sanitizeManualBadges(dish.manualBadges) };
+  }
+  if (typeof dish.badge === "string" && dish.badge.trim()) {
+    return { ...dish, manualBadges: migrateLegacyBadgeString(dish.badge) };
+  }
+  return { ...dish, manualBadges: [] };
+}
+
 function loadOwnerStagedSession() {
   try {
     const raw = window.sessionStorage.getItem(OWNER_STAGED_SESSION_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.map(migrateStagedDishFromSession) : [];
   } catch {
     return [];
   }
@@ -31,12 +42,161 @@ function loadOwnerStagedSession() {
 /** Local image uploads are stored as data URLs; keep a modest cap for localStorage. */
 const MAX_OWNER_IMAGE_BYTES = 2 * 1024 * 1024;
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const MENU_NEW_MAX_AGE_MS = 14 * MS_PER_DAY;
+const POPULAR_SALES_TOP_N = 5;
+
+const AUTO_BADGE_SEASONAL_NEW = "Seasonal/New";
+
+function isReservedBadgeKeyword(text) {
+  const t = String(text).trim().toLowerCase();
+  return (
+    t === "popular" ||
+    t === "new" ||
+    t === "seasonal" ||
+    t === "seasonal/new" ||
+    t === "new/seasonal"
+  );
+}
+
+function sanitizeManualBadges(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr.map((b) => String(b).trim()).filter(Boolean).filter((b) => !isReservedBadgeKeyword(b));
+}
+
+function parseOwnerCustomBadgesInput(raw) {
+  return sanitizeManualBadges(
+    String(raw ?? "")
+      .split(/[,|\n]/)
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
+}
+
+function formatManualBadgesInput(arr) {
+  return Array.isArray(arr) ? arr.join(", ") : "";
+}
+
+function migrateLegacyBadgeString(str) {
+  return String(str)
+    .split(/[,|]/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .filter((b) => !isReservedBadgeKeyword(b));
+}
+
+function normalizeMenuItemFromPersisted(item) {
+  if (!item || typeof item !== "object") return item;
+  const menuAddedAt =
+    typeof item.menuAddedAt === "string" && item.menuAddedAt.trim()
+      ? item.menuAddedAt.trim()
+      : "2024-06-01T12:00:00.000Z";
+
+  let manualBadges = [];
+  if (Array.isArray(item.manualBadges)) {
+    manualBadges = sanitizeManualBadges(item.manualBadges);
+  } else if (typeof item.badge === "string" && item.badge.trim()) {
+    manualBadges = migrateLegacyBadgeString(item.badge);
+  }
+
+  const { badge: _legacy, ...rest } = item;
+  return { ...rest, menuAddedAt, manualBadges };
+}
+
+function countLineSalesForItem(orders, itemId) {
+  if (!Array.isArray(orders)) return 0;
+  return orders.reduce((sum, o) => sum + (o.itemId === itemId ? Number(o.quantity || 1) : 0), 0);
+}
+
+function sortVisibleMenuBySalesThenPopularity(menu, orders) {
+  return [...menu].sort((a, b) => {
+    const ca = countLineSalesForItem(orders, a.id);
+    const cb = countLineSalesForItem(orders, b.id);
+    if (cb !== ca) return cb - ca;
+    return (b.popularity || 0) - (a.popularity || 0);
+  });
+}
+
+function topPopularItemIdsBySales(menu, orders) {
+  const rows = menu.map((m) => ({
+    id: m.id,
+    count: countLineSalesForItem(orders, m.id),
+    popularity: Number(m.popularity || 0),
+  }));
+  rows.sort((a, b) => b.count - a.count || b.popularity - a.popularity);
+  return new Set(rows.slice(0, POPULAR_SALES_TOP_N).map((r) => r.id));
+}
+
+function isWithinMenuNewSeasonalWindow(item) {
+  const t = new Date(item.menuAddedAt || 0).getTime();
+  if (!Number.isFinite(t) || t <= 0) return false;
+  return Date.now() - t < MENU_NEW_MAX_AGE_MS;
+}
+
+function getAutoBadgesForItem(item, ctx) {
+  const { orders, menu } = ctx;
+  const list = Array.isArray(menu) ? menu : [];
+  const out = [];
+  const topIds = topPopularItemIdsBySales(list, orders || []);
+  if (topIds.has(item.id)) out.push("Popular");
+  if (isWithinMenuNewSeasonalWindow(item)) {
+    out.push(AUTO_BADGE_SEASONAL_NEW);
+  }
+  return out;
+}
+
+/** Match badge filter including legacy option names "New" / "Seasonal" vs combined auto badge. */
+function itemBadgeMatchesFilter(itemBadges, selectedBadge) {
+  if (selectedBadge === "all") return true;
+  const lower = new Set(itemBadges.map((b) => String(b).trim().toLowerCase()));
+  const sel = String(selectedBadge).trim().toLowerCase();
+  if (lower.has(sel)) return true;
+  const combo = AUTO_BADGE_SEASONAL_NEW.toLowerCase();
+  if (lower.has(combo) && (sel === "new" || sel === "seasonal")) return true;
+  return false;
+}
+
+function getAllBadgesForItem(item, ctx) {
+  const auto = getAutoBadgesForItem(item, ctx);
+  const manual = sanitizeManualBadges(item.manualBadges);
+  const seen = new Set();
+  const out = [];
+  for (const b of [...auto, ...manual]) {
+    const key = b.trim();
+    if (!key) continue;
+    const lower = key.toLowerCase();
+    if (seen.has(lower)) continue;
+    seen.add(lower);
+    out.push(key);
+  }
+  return out;
+}
+
+function collectBadgeFilterOptions(menuItems, orders) {
+  const s = new Set();
+  const ctx = { orders: orders || [], menu: menuItems };
+  for (const item of menuItems) {
+    getAllBadgesForItem(item, ctx).forEach((b) => s.add(b));
+  }
+  return [...s].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+}
+
+function badgeToneClass(label) {
+  const t = String(label).trim().toLowerCase();
+  if (t === "popular") return "badge-auto-popular";
+  if (t === "seasonal/new" || t === "new/seasonal") return "badge-auto-seasonal-new";
+  if (t === "new") return "badge-auto-new";
+  if (t === "seasonal") return "badge-auto-seasonal";
+  return "badge-custom";
+}
+
 const starterMenu = [
   {
     id: "stack-house-breakfast",
     name: "Stack House Breakfast",
     price: 12.99,
-    badge: "Popular",
+    manualBadges: [],
+    menuAddedAt: "2024-06-01T12:00:00.000Z",
     image: "/assets/pancake-breakfast.png",
     description:
       "Golden pancakes, soft eggs, crispy bacon, and maple butter for an all-day breakfast plate.",
@@ -56,7 +216,8 @@ const starterMenu = [
     id: "red-basket-burger",
     name: "Red Basket Burger",
     price: 14.49,
-    badge: "Popular",
+    manualBadges: [],
+    menuAddedAt: "2024-06-01T12:00:00.000Z",
     image: "/assets/diner-burger.png",
     description:
       "A cheddar burger with lettuce, tomato, pickles, house sauce, and a side of hot fries.",
@@ -76,7 +237,8 @@ const starterMenu = [
     id: "sunrise-skillet",
     name: "Sunrise Skillet",
     price: 13.79,
-    badge: "Hot",
+    manualBadges: ["Hot"],
+    menuAddedAt: "2024-06-01T12:00:00.000Z",
     image: "/assets/pancake-breakfast.png",
     description:
       "Eggs, potatoes, bacon, and warm breakfast sauce built for a fast morning order.",
@@ -96,7 +258,8 @@ const starterMenu = [
     id: "late-night-burger",
     name: "Late-Night Burger",
     price: 15.25,
-    badge: "New",
+    manualBadges: [],
+    menuAddedAt: "2026-05-22T12:00:00.000Z",
     image: "/assets/diner-burger.png",
     description:
       "Double cheddar, crisp pickles, diner sauce, and fries for after-hours cravings.",
@@ -115,7 +278,7 @@ const starterMenu = [
 ];
 
 const initialState = {
-  menu: starterMenu,
+  menu: starterMenu.map((row) => normalizeMenuItemFromPersisted({ ...row })),
   orders: [],
   cart: [],
 };
@@ -132,7 +295,7 @@ function loadState() {
     if (!saved) return initialState;
     const parsed = JSON.parse(saved);
     return {
-      menu: Array.isArray(parsed.menu) ? parsed.menu : initialState.menu,
+      menu: (Array.isArray(parsed.menu) ? parsed.menu : initialState.menu).map(normalizeMenuItemFromPersisted),
       orders: Array.isArray(parsed.orders) ? parsed.orders : [],
       cart: Array.isArray(parsed.cart) ? parsed.cart : [],
     };
@@ -145,37 +308,37 @@ function formatPrice(value) {
   return `$${Number(value).toFixed(2)}`;
 }
 
-function uniqSortedCategoryBadgeValues(items, field) {
+function uniqSortedCategoryValues(items) {
   const s = new Set();
   for (const item of items) {
-    const raw = item[field];
+    const raw = item.category;
     const t = typeof raw === "string" ? raw.trim() : "";
     if (t) s.add(t);
   }
   return [...s].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 }
 
-function filterMenuByCategoryAndBadge(items, category, badge) {
+function filterMenuByCategoryAndBadge(items, category, badge, badgeCtx) {
   return items.filter((item) => {
     if (category !== "all" && (item.category || "").trim() !== category) return false;
-    if (badge !== "all" && (item.badge || "").trim() !== badge) return false;
+    if (badge !== "all" && !itemBadgeMatchesFilter(getAllBadgesForItem(item, badgeCtx), badge)) return false;
     return true;
   });
 }
 
-function MenuFiltersBar({ menuItems, category, badge, onCategory, onBadge }) {
+function MenuFiltersBar({ menuItems, category, badge, onCategory, onBadge, badgeOptions }) {
   const catSelectId = useId();
   const badgeSelectId = useId();
-  const categoryOptions = useMemo(() => uniqSortedCategoryBadgeValues(menuItems, "category"), [menuItems]);
-  const badgeOptions = useMemo(() => uniqSortedCategoryBadgeValues(menuItems, "badge"), [menuItems]);
+  const categoryOptions = useMemo(() => uniqSortedCategoryValues(menuItems), [menuItems]);
+  const badgeOptionsSafe = Array.isArray(badgeOptions) ? badgeOptions : [];
 
   useEffect(() => {
     if (category !== "all" && !categoryOptions.includes(category)) onCategory("all");
   }, [category, categoryOptions, onCategory]);
 
   useEffect(() => {
-    if (badge !== "all" && !badgeOptions.includes(badge)) onBadge("all");
-  }, [badge, badgeOptions, onBadge]);
+    if (badge !== "all" && !badgeOptionsSafe.includes(badge)) onBadge("all");
+  }, [badge, badgeOptionsSafe, onBadge]);
 
   const showClear = category !== "all" || badge !== "all";
 
@@ -197,7 +360,7 @@ function MenuFiltersBar({ menuItems, category, badge, onCategory, onBadge }) {
           Badge
           <select id={badgeSelectId} value={badge} onChange={(event) => onBadge(event.target.value)}>
             <option value="all">All badges</option>
-            {badgeOptions.map((b) => (
+            {badgeOptionsSafe.map((b) => (
               <option key={b} value={b}>
                 {b}
               </option>
@@ -386,16 +549,23 @@ function App() {
   }
 
   function addMenuItem(item) {
+    const manualBadges = sanitizeManualBadges(item.manualBadges);
+    const now = new Date().toISOString();
     setState((current) => ({
       ...current,
       menu: [
         {
-          ...item,
-          id: `dish-${Date.now()}`,
+          name: item.name,
+          price: item.price,
+          category: item.category,
+          description: item.description,
           image: item.image || "/assets/diner-burger.png",
-          popularity: 70,
-          available: true,
-          reviews: [],
+          id: `dish-${Date.now()}`,
+          popularity: Number(item.popularity) || 70,
+          available: item.available !== false,
+          reviews: Array.isArray(item.reviews) ? item.reviews : [],
+          manualBadges,
+          menuAddedAt: typeof item.menuAddedAt === "string" && item.menuAddedAt ? item.menuAddedAt : now,
         },
         ...current.menu,
       ],
@@ -405,18 +575,20 @@ function App() {
   function addMenuItemsBatch(items) {
     if (!items.length) return;
     const ts = Date.now();
+    const now = new Date().toISOString();
     setState((current) => {
       const newRows = items.map((item, i) => ({
         name: item.name,
         price: item.price,
         category: item.category,
-        badge: item.badge,
         description: item.description,
         image: item.image || "/assets/diner-burger.png",
         id: `dish-${ts}-${i}`,
-        popularity: 70,
+        popularity: Number(item.popularity) || 70,
         available: true,
         reviews: [],
+        manualBadges: sanitizeManualBadges(item.manualBadges),
+        menuAddedAt: typeof item.menuAddedAt === "string" && item.menuAddedAt ? item.menuAddedAt : now,
       }));
       return { ...current, menu: [...newRows.reverse(), ...current.menu] };
     });
@@ -425,9 +597,15 @@ function App() {
   function updateMenuItem(itemId, patch) {
     setState((current) => ({
       ...current,
-      menu: current.menu.map((menuItem) =>
-        menuItem.id === itemId ? { ...menuItem, ...patch, id: menuItem.id } : menuItem,
-      ),
+      menu: current.menu.map((menuItem) => {
+        if (menuItem.id !== itemId) return menuItem;
+        const next = { ...menuItem, ...patch, id: menuItem.id };
+        delete next.badge;
+        if (patch.manualBadges !== undefined) {
+          next.manualBadges = sanitizeManualBadges(patch.manualBadges);
+        }
+        return next;
+      }),
     }));
   }
 
@@ -620,6 +798,7 @@ function App() {
             element={
               <OwnerShell
                 menu={state.menu}
+                orders={state.orders}
                 onAddMenuItem={addMenuItem}
                 onAddMenuItemsBatch={addMenuItemsBatch}
                 onUpdateMenuItem={updateMenuItem}
@@ -813,7 +992,7 @@ function CartPage({ cart, onUpdateQuantity, onRemoveLine, onCheckout }) {
   );
 }
 
-function HomePopularCarousel({ items, onOrder }) {
+function HomePopularCarousel({ items, onOrder, orders, menuForBadges }) {
   const [index, setIndex] = useState(0);
   const count = items.length;
 
@@ -843,7 +1022,7 @@ function HomePopularCarousel({ items, onOrder }) {
           <div className="home-carousel-track" style={{ transform: `translateX(-${index * 100}%)` }}>
             {items.map((item) => (
               <div key={item.id} className="home-carousel-slide">
-                <MenuCard item={item} onOrder={onOrder} />
+                <MenuCard item={item} onOrder={onOrder} orders={orders} menuForBadges={menuForBadges} />
               </div>
             ))}
           </div>
@@ -872,8 +1051,8 @@ function HomePopularCarousel({ items, onOrder }) {
 function HomePage({ menu, orders, onOrder }) {
   const visibleMenu = useMemo(() => menu.filter((item) => item.available !== false), [menu]);
   const popularItems = useMemo(
-    () => [...visibleMenu].sort((a, b) => b.popularity - a.popularity).slice(0, 4),
-    [visibleMenu],
+    () => sortVisibleMenuBySalesThenPopularity(visibleMenu, orders).slice(0, 4),
+    [visibleMenu, orders],
   );
 
   return (
@@ -904,9 +1083,9 @@ function HomePage({ menu, orders, onOrder }) {
         <div className="section-heading">
           <p className="eyebrow">Most popular</p>
           <h2 id="popular-title">Guest favorites</h2>
-          <p>Swipe through top picks, then open the full menu for every category and badge filter.</p>
+          <p>Swipe through top picks by sales, then open the full menu to filter by category and badge.</p>
         </div>
-        <HomePopularCarousel items={popularItems} onOrder={onOrder} />
+        <HomePopularCarousel items={popularItems} onOrder={onOrder} orders={orders} menuForBadges={visibleMenu} />
         <OrderHistory orders={orders} />
       </section>
     </>
@@ -917,9 +1096,11 @@ function MenuPage({ menu, orders, onOrder, onReview }) {
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterBadge, setFilterBadge] = useState("all");
   const visibleMenu = useMemo(() => menu.filter((item) => item.available !== false), [menu]);
+  const badgeCtx = useMemo(() => ({ orders, menu: visibleMenu }), [orders, visibleMenu]);
+  const badgeFilterOptions = useMemo(() => collectBadgeFilterOptions(visibleMenu, orders), [visibleMenu, orders]);
   const filteredMenu = useMemo(
-    () => filterMenuByCategoryAndBadge(visibleMenu, filterCategory, filterBadge),
-    [visibleMenu, filterCategory, filterBadge],
+    () => filterMenuByCategoryAndBadge(visibleMenu, filterCategory, filterBadge, badgeCtx),
+    [visibleMenu, filterCategory, filterBadge, badgeCtx],
   );
 
   return (
@@ -936,12 +1117,13 @@ function MenuPage({ menu, orders, onOrder, onReview }) {
         badge={filterBadge}
         onCategory={setFilterCategory}
         onBadge={setFilterBadge}
+        badgeOptions={badgeFilterOptions}
       />
 
       {filteredMenu.length ? (
         <div className="menu-grid">
           {filteredMenu.map((item) => (
-            <MenuCard key={item.id} item={item} onOrder={onOrder} onReview={onReview} />
+            <MenuCard key={item.id} item={item} onOrder={onOrder} onReview={onReview} orders={orders} menuForBadges={visibleMenu} />
           ))}
         </div>
       ) : (
@@ -953,11 +1135,17 @@ function MenuPage({ menu, orders, onOrder, onReview }) {
   );
 }
 
-function MenuCard({ item, onOrder, onReview }) {
+function MenuCard({ item, onOrder, onReview, orders = [], menuForBadges = [] }) {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [author, setAuthor] = useState("");
   const [rating, setRating] = useState(5);
   const [text, setText] = useState("");
+
+  const badgeCtx = useMemo(
+    () => ({ orders, menu: menuForBadges.length ? menuForBadges : [item] }),
+    [orders, menuForBadges, item],
+  );
+  const badges = useMemo(() => getAllBadgesForItem(item, badgeCtx), [item, badgeCtx]);
 
   const averageRating = useMemo(() => {
     if (!item.reviews.length) return 0;
@@ -983,7 +1171,15 @@ function MenuCard({ item, onOrder, onReview }) {
     <article className="food-card">
       <div className="food-image-wrap">
         <img src={item.image} alt={`${item.name} dish`} />
-        <span className="badge">{item.badge}</span>
+        {badges.length ? (
+          <div className="food-card-badges-wrap">
+            {badges.map((b) => (
+              <span key={b} className={`badge ${badgeToneClass(b)}`}>
+                {b}
+              </span>
+            ))}
+          </div>
+        ) : null}
       </div>
       <div className="food-card-body">
         <div className="food-title-row">
@@ -1323,7 +1519,7 @@ function OwnerImageUploadModal({ open, onClose, onApply }) {
   );
 }
 
-function OwnerShell({ menu, onAddMenuItem, onAddMenuItemsBatch, onUpdateMenuItem, onDeleteMenuItem, onToggleMenuItemAvailable }) {
+function OwnerShell({ menu, orders, onAddMenuItem, onAddMenuItemsBatch, onUpdateMenuItem, onDeleteMenuItem, onToggleMenuItemAvailable }) {
   const [stagedDishes, setStagedDishes] = useState(loadOwnerStagedSession);
 
   useEffect(() => {
@@ -1362,6 +1558,7 @@ function OwnerShell({ menu, onAddMenuItem, onAddMenuItemsBatch, onUpdateMenuItem
       <Outlet
         context={{
           menu,
+          orders,
           onAddMenuItem,
           onAddMenuItemsBatch,
           onUpdateMenuItem,
@@ -1385,7 +1582,7 @@ function OwnerAddPage() {
     name: "",
     price: "",
     category: "Specials",
-    badge: "New",
+    customBadges: "",
     description: "",
     image: "",
   });
@@ -1407,12 +1604,13 @@ function OwnerAddPage() {
   function addToPreview(event) {
     event.preventDefault();
     if (!form.name.trim() || !form.description.trim() || !form.price) return;
+    const manualBadges = parseOwnerCustomBadgesInput(form.customBadges);
     const payload = {
       id: `preview-${Date.now()}`,
       name: form.name.trim(),
       price: Number(form.price),
       category: form.category.trim() || "Specials",
-      badge: form.badge.trim() || "New",
+      manualBadges,
       description: form.description.trim(),
       image: form.image.trim(),
     };
@@ -1421,7 +1619,7 @@ function OwnerAddPage() {
       name: "",
       price: "",
       category: "Specials",
-      badge: "New",
+      customBadges: "",
       description: "",
       image: "",
     });
@@ -1434,9 +1632,33 @@ function OwnerAddPage() {
 
   function submitStagedToMenu() {
     if (!stagedDishes.length) return;
-    const payloads = stagedDishes.map(({ id: _id, ...rest }) => rest);
+    const payloads = stagedDishes.map((dish) => {
+      const { id: _id, badge: _legacyBadge, ...rest } = dish;
+      const manualFromArray = Array.isArray(rest.manualBadges)
+        ? sanitizeManualBadges(rest.manualBadges)
+        : typeof _legacyBadge === "string"
+          ? migrateLegacyBadgeString(_legacyBadge)
+          : [];
+      return {
+        name: rest.name,
+        price: rest.price,
+        category: rest.category,
+        description: rest.description,
+        image: rest.image,
+        manualBadges: manualFromArray,
+      };
+    });
     onAddMenuItemsBatch(payloads);
     clearStagedDishes();
+  }
+
+  function previewCustomBadgesLine(dish) {
+    const m = Array.isArray(dish.manualBadges)
+      ? sanitizeManualBadges(dish.manualBadges)
+      : typeof dish.badge === "string"
+        ? migrateLegacyBadgeString(dish.badge)
+        : [];
+    return m.length ? m.join(" · ") : "No custom badges";
   }
 
   return (
@@ -1472,9 +1694,16 @@ function OwnerAddPage() {
               placeholder="Specials"
             />
           </label>
-          <label>
-            Badge
-            <input value={form.badge} onChange={(event) => updateField("badge", event.target.value)} placeholder="New" />
+          <label className="full-row">
+            Custom badges
+            <input
+              value={form.customBadges}
+              onChange={(event) => updateField("customBadges", event.target.value)}
+              placeholder="e.g. Chef's pick, Spicy (comma-separated)"
+            />
+            <span className="owner-field-hint">
+              Popular and Seasonal/New (new items on the menu under 14 days) are automatic from sales and menu age — do not type them here.
+            </span>
           </label>
 
           <fieldset className="owner-image-fieldset full-row">
@@ -1571,7 +1800,7 @@ function OwnerAddPage() {
                 <div className="owner-add-preview-body">
                   <strong>{dish.name}</strong>
                   <p className="owner-add-preview-meta">
-                    {dish.category} · {formatPrice(dish.price)} · {dish.badge}
+                    {dish.category} · {formatPrice(dish.price)} · {previewCustomBadgesLine(dish)}
                   </p>
                   <p className="owner-add-preview-desc">{dish.description}</p>
                 </div>
@@ -1609,7 +1838,7 @@ function OwnerAddPage() {
 }
 
 function OwnerEditMenuPage() {
-  const { menu, onDeleteMenuItem, onToggleMenuItemAvailable } = useOutletContext();
+  const { menu, orders, onDeleteMenuItem, onToggleMenuItemAvailable } = useOutletContext();
   const navigate = useNavigate();
 
   function confirmDelete(item) {
@@ -1636,7 +1865,7 @@ function OwnerEditMenuPage() {
               <div>
                 <strong>{item.name}</strong>
                 <p>
-                  {item.category} · {formatPrice(item.price)} · {item.badge}
+                  {item.category} · {formatPrice(item.price)} · {getAllBadgesForItem(item, { orders, menu }).join(" · ") || "—"}
                 </p>
                 {item.available === false ? <span className="owner-hidden-pill">Hidden from menu</span> : null}
               </div>
@@ -1662,7 +1891,7 @@ function OwnerEditMenuPage() {
 }
 
 function OwnerEditDishPage() {
-  const { menu, onUpdateMenuItem } = useOutletContext();
+  const { menu, orders, onUpdateMenuItem } = useOutletContext();
   const { itemId } = useParams();
   const navigate = useNavigate();
   const item = useMemo(() => menu.find((m) => m.id === itemId), [menu, itemId]);
@@ -1676,11 +1905,16 @@ function OwnerEditDishPage() {
       navigate("/owner/edit", { replace: true });
       return;
     }
+    const manual = Array.isArray(item.manualBadges)
+      ? item.manualBadges
+      : typeof item.badge === "string"
+        ? migrateLegacyBadgeString(item.badge)
+        : [];
     setForm({
       name: item.name,
       price: String(item.price),
       category: item.category,
-      badge: item.badge,
+      customBadges: formatManualBadgesInput(manual),
       description: item.description,
       image: item.image,
     });
@@ -1713,12 +1947,26 @@ function OwnerEditDishPage() {
       name: form.name.trim(),
       price: Number(form.price),
       category: form.category.trim() || "Specials",
-      badge: form.badge.trim() || "New",
+      manualBadges: parseOwnerCustomBadgesInput(form.customBadges),
       description: form.description.trim(),
       image: form.image.trim() || "/assets/diner-burger.png",
     });
     navigate("/owner/edit");
   }
+
+  const liveBadgePreview = useMemo(() => {
+    if (!item || !form) return [];
+    const merged = {
+      ...item,
+      name: form.name.trim() || item.name,
+      price: form.price !== "" && form.price != null ? Number(form.price) : item.price,
+      category: form.category.trim() || item.category,
+      description: form.description.trim() || item.description,
+      image: form.image.trim() || item.image || "/assets/diner-burger.png",
+      manualBadges: parseOwnerCustomBadgesInput(form.customBadges),
+    };
+    return getAllBadgesForItem(merged, { orders, menu });
+  }, [item, form, orders, menu]);
 
   if (!item || !form) {
     return (
@@ -1767,10 +2015,20 @@ function OwnerEditDishPage() {
             placeholder="Specials"
           />
         </label>
-        <label>
-          Badge
-          <input value={form.badge} onChange={(event) => updateField("badge", event.target.value)} placeholder="New" />
+        <label className="full-row">
+          Custom badges
+          <input
+            value={form.customBadges}
+            onChange={(event) => updateField("customBadges", event.target.value)}
+            placeholder="e.g. Chef's pick, Spicy (comma-separated)"
+          />
+          <span className="owner-field-hint">
+            Popular and Seasonal/New are automatic — do not type them here. They appear below as guests will see them.
+          </span>
         </label>
+        <p className="owner-live-badges-preview" aria-live="polite">
+          <strong>Live badges (guest view):</strong> {liveBadgePreview.length ? liveBadgePreview.join(" · ") : "—"}
+        </p>
 
         <fieldset className="owner-image-fieldset full-row">
           <legend>Dish image</legend>
