@@ -1,4 +1,5 @@
 ﻿import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Link,
   NavLink,
@@ -449,9 +450,18 @@ function DishReviewsModal({ open, onClose, item }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
   if (!open || !item || !item.reviews?.length) return null;
 
-  return (
+  return createPortal(
     <div className="order-modal-backdrop" role="presentation" onClick={onClose}>
       <div
         className="order-modal dish-reviews-modal"
@@ -489,7 +499,8 @@ function DishReviewsModal({ open, onClose, item }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -1621,6 +1632,7 @@ function MenuPage({ menu, orders, session, onOrder, onReview }) {
   const { t } = useI18n();
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterBadge, setFilterBadge] = useState("all");
+  const [openReviewItemId, setOpenReviewItemId] = useState(null);
   const visibleMenu = useMemo(() => menu.filter((item) => item.available !== false), [menu]);
   const badgeCtx = useMemo(() => ({ orders, menu: visibleMenu }), [orders, visibleMenu]);
   const badgeFilterOptions = useMemo(() => collectBadgeFilterOptions(visibleMenu, orders), [visibleMenu, orders]);
@@ -1628,6 +1640,17 @@ function MenuPage({ menu, orders, session, onOrder, onReview }) {
     () => filterMenuByCategoryAndBadge(visibleMenu, filterCategory, filterBadge, badgeCtx),
     [visibleMenu, filterCategory, filterBadge, badgeCtx],
   );
+
+  useEffect(() => {
+    setOpenReviewItemId(null);
+  }, [filterCategory, filterBadge]);
+
+  function handleReviewPanelToggle(itemId) {
+    setOpenReviewItemId((prev) => {
+      if (itemId === null) return null;
+      return prev === itemId ? null : itemId;
+    });
+  }
 
   return (
     <section className="content-section page-section" aria-labelledby="menu-title">
@@ -1657,6 +1680,8 @@ function MenuPage({ menu, orders, session, onOrder, onReview }) {
               session={session}
               orders={orders}
               menuForBadges={visibleMenu}
+              reviewOpen={openReviewItemId === item.id}
+              onReviewPanelToggle={handleReviewPanelToggle}
             />
           ))}
         </div>
@@ -1672,13 +1697,35 @@ function MenuPage({ menu, orders, session, onOrder, onReview }) {
   );
 }
 
-function MenuCard({ item, onOrder, onReview, session = null, orders = [], menuForBadges = [] }) {
+function MenuCard({
+  item,
+  onOrder,
+  onReview,
+  session = null,
+  orders = [],
+  menuForBadges = [],
+  reviewOpen: reviewOpenProp = false,
+  onReviewPanelToggle,
+}) {
   const { t } = useI18n();
   const location = useLocation();
-  const [reviewOpen, setReviewOpen] = useState(false);
+  const [fallbackReviewOpen, setFallbackReviewOpen] = useState(false);
   const [reviewsModalOpen, setReviewsModalOpen] = useState(false);
   const [rating, setRating] = useState(5);
   const [text, setText] = useState("");
+
+  const controlledReview = typeof onReviewPanelToggle === "function";
+  const reviewOpen = controlledReview ? reviewOpenProp : fallbackReviewOpen;
+
+  function toggleReviewPanel() {
+    if (controlledReview) onReviewPanelToggle(item.id);
+    else setFallbackReviewOpen((o) => !o);
+  }
+
+  function closeReviewPanel() {
+    if (controlledReview) onReviewPanelToggle(null);
+    else setFallbackReviewOpen(false);
+  }
 
   const badgeCtx = useMemo(
     () => ({ orders, menu: menuForBadges.length ? menuForBadges : [item] }),
@@ -1713,7 +1760,7 @@ function MenuCard({ item, onOrder, onReview, session = null, orders = [], menuFo
     });
     setText("");
     setRating(5);
-    setReviewOpen(false);
+    closeReviewPanel();
   }
 
   return (
@@ -1753,7 +1800,7 @@ function MenuCard({ item, onOrder, onReview, session = null, orders = [], menuFo
             {t("menuCard.addToCart")}
           </button>
           {onReview && (
-            <button className="secondary-cta small" type="button" onClick={() => setReviewOpen(!reviewOpen)}>
+            <button className="secondary-cta small" type="button" onClick={toggleReviewPanel}>
               {t("menuCard.review")}
             </button>
           )}
