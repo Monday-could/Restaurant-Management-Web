@@ -83,11 +83,9 @@ function loadOwnerStagedSession() {
 /** Local image uploads are stored as data URLs; keep a modest cap for localStorage. */
 const MAX_OWNER_IMAGE_BYTES = 2 * 1024 * 1024;
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-const MENU_NEW_MAX_AGE_MS = 14 * MS_PER_DAY;
 const POPULAR_SALES_TOP_N = 5;
 /** How many newest reviews to show on each menu card before opening the full list modal. */
-const MENU_CARD_REVIEW_PREVIEW_COUNT = 3;
+const MENU_CARD_REVIEW_PREVIEW_COUNT = 1;
 const TOAST_TTL_MS = 4200;
 /** Safety net if menu REST never settles. Kept separate from orders so authSession changes cannot abort menu mid-flight. */
 const MENU_LOAD_TIMEOUT_MS = 8_000;
@@ -100,17 +98,10 @@ function isAbortLikeError(e) {
   return name === "AbortError" || msg.includes("abort") || msg.includes("aborted");
 }
 
-const AUTO_BADGE_SEASONAL_NEW = "Seasonal/New";
-
 function isReservedBadgeKeyword(text) {
   const t = String(text).trim().toLowerCase();
-  return (
-    t === "popular" ||
-    t === "new" ||
-    t === "seasonal" ||
-    t === "seasonal/new" ||
-    t === "new/seasonal"
-  );
+  /** Only "Popular" is assigned automatically from sales stats; block manual use to avoid confusion. */
+  return t === "popular";
 }
 
 function sanitizeManualBadges(arr) {
@@ -181,33 +172,20 @@ function topPopularItemIdsBySales(menu, orders) {
   return new Set(rows.slice(0, POPULAR_SALES_TOP_N).map((r) => r.id));
 }
 
-function isWithinMenuNewSeasonalWindow(item) {
-  const t = new Date(item.menuAddedAt || 0).getTime();
-  if (!Number.isFinite(t) || t <= 0) return false;
-  return Date.now() - t < MENU_NEW_MAX_AGE_MS;
-}
-
 function getAutoBadgesForItem(item, ctx) {
   const { orders, menu } = ctx;
   const list = Array.isArray(menu) ? menu : [];
   const out = [];
   const topIds = topPopularItemIdsBySales(list, orders || []);
   if (topIds.has(item.id)) out.push("Popular");
-  if (isWithinMenuNewSeasonalWindow(item)) {
-    out.push(AUTO_BADGE_SEASONAL_NEW);
-  }
   return out;
 }
 
-/** Match badge filter including legacy option names "New" / "Seasonal" vs combined auto badge. */
 function itemBadgeMatchesFilter(itemBadges, selectedBadge) {
   if (selectedBadge === "all") return true;
   const lower = new Set(itemBadges.map((b) => String(b).trim().toLowerCase()));
   const sel = String(selectedBadge).trim().toLowerCase();
-  if (lower.has(sel)) return true;
-  const combo = AUTO_BADGE_SEASONAL_NEW.toLowerCase();
-  if (lower.has(combo) && (sel === "new" || sel === "seasonal")) return true;
-  return false;
+  return lower.has(sel);
 }
 
 function getAllBadgesForItem(item, ctx) {
@@ -563,6 +541,8 @@ function LoginPage({ onLoginSuccess }) {
   const [searchParams] = useSearchParams();
   const returnTo = sanitizeReturnToParam(searchParams.get("returnTo"));
   const profileNotice = searchParams.get("notice") === "profile";
+  const roleParam = searchParams.get("role");
+  const isStaffOrOwnerLogin = roleParam === "staff" || roleParam === "owner";
   const registerHref = returnTo ? `/register?returnTo=${encodeURIComponent(returnTo)}` : "/register";
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -628,11 +608,20 @@ function LoginPage({ onLoginSuccess }) {
           {loading ? t("auth.login.loading") : t("auth.login.submit")}
         </button>
       </form>
-      <p className="auth-secondary-actions">
-        <Link to={registerHref}>{t("auth.login.linkRegister")}</Link>
-        {" · "}
-        <Link to="/menu">{t("auth.login.linkGuest")}</Link>
-      </p>
+      {isStaffOrOwnerLogin ? (
+        <p className="auth-hint auth-login-staff-owner-footer">
+          {t("auth.login.staffOwnerFooterHint")}{" "}
+          <Link to="/menu" className="auth-footer-link">
+            {t("auth.login.linkGuest")}
+          </Link>
+        </p>
+      ) : (
+        <p className="auth-secondary-actions">
+          <Link to={registerHref}>{t("auth.login.linkRegister")}</Link>
+          {" · "}
+          <Link to="/menu">{t("auth.login.linkGuest")}</Link>
+        </p>
+      )}
     </section>
   );
 }
@@ -1223,7 +1212,7 @@ function App() {
               </button>
             </span>
           )}
-          {mode === "owner" ? (
+          {authSession?.role === "owner" ? (
             <>
               <NavLink to="/owner/add" end>
                 {t("header.addDish")}
@@ -1377,7 +1366,7 @@ function App() {
                 </button>
               </>
             )}
-            {mode === "owner" ? (
+            {authSession?.role === "owner" ? (
               <>
                 <MobileLink to="/owner/add" onDone={() => setDrawerOpen(false)}>
                   {t("header.addDish")}
@@ -1770,7 +1759,7 @@ function HomePage({ menu, orders, onOrder }) {
   const { t } = useI18n();
   const visibleMenu = useMemo(() => menu.filter((item) => item.available !== false), [menu]);
   const popularItems = useMemo(
-    () => sortVisibleMenuBySalesThenPopularity(visibleMenu, orders).slice(0, 4),
+    () => sortVisibleMenuBySalesThenPopularity(visibleMenu, orders).slice(0, POPULAR_SALES_TOP_N),
     [visibleMenu, orders],
   );
 

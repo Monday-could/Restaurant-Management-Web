@@ -300,9 +300,9 @@ const STR = {
   "ownerAdd.category": { en: "Category", zh: "分类", es: "Categoría" },
   "ownerAdd.customBadges": { en: "Custom badges", zh: "自定义徽章", es: "Distintivos personalizados" },
   "ownerAdd.customBadgesHint": {
-    en: "Popular and Seasonal/New (new items on the menu under 14 days) are automatic from sales and menu age — do not type them here.",
-    zh: "「热门」与「时令/新品」（上架未满 14 天）会根据销量与上架时间自动生成——请勿在此输入。",
-    es: "Popular y Temporal/Nuevo (menos de 14 días en carta) son automáticos — no los escribas aquí.",
+    en: "“Popular” is assigned automatically from sales — do not type it here.",
+    zh: "「热门」由销量统计自动生成——请勿在此输入。",
+    es: "«Popular» se asigna automáticamente según ventas — no lo escribas aquí.",
   },
   "ownerAdd.dishImage": { en: "Dish image", zh: "菜品图片", es: "Imagen del plato" },
   "ownerAdd.imageSourceAria": { en: "Image source", zh: "图片来源", es: "Origen de imagen" },
@@ -358,9 +358,9 @@ const STR = {
   "ownerEdit.editDishTitle": { en: "Edit dish", zh: "编辑菜品", es: "Editar plato" },
   "ownerEdit.loading": { en: "Loading dish…", zh: "加载中…", es: "Cargando plato…" },
   "ownerEdit.customBadgesEditHint": {
-    en: "Popular and Seasonal/New are automatic — do not type them here. They appear below as guests will see them.",
-    zh: "「热门」与「时令/新品」为自动生成——请勿在此输入。下方预览为顾客将看到的效果。",
-    es: "Popular y Temporal/Nuevo son automáticos — no los escribas aquí. Abajo verás lo que verá el cliente.",
+    en: "“Popular” is automatic from sales — do not type it here. Badges below show the guest view.",
+    zh: "「热门」由销量统计自动生成——请勿在此输入。下方为顾客将看到的徽章。",
+    es: "«Popular» es automático según ventas — no lo escribas aquí. Abajo verás lo que verá el cliente.",
   },
   "ownerEdit.liveBadges": { en: "Live badges (guest view):", zh: "实时徽章（顾客视角）：", es: "Distintivos en vivo (vista cliente):" },
   "ownerEdit.save": { en: "Save changes", zh: "保存更改", es: "Guardar cambios" },
@@ -449,6 +449,11 @@ const STR = {
     en: "Log in to open your profile. Order history is not shown on the customer site — staff handle tickets in Staff mode.",
     zh: "请登录后查看个人资料。本站不向顾客展示订单历史；员工请在「员工模式」中处理小票。",
     es: "Inicia sesión para ver tu perfil. El historial de pedidos no se muestra aquí; el personal usa modo Personal.",
+  },
+  "auth.login.staffOwnerFooterHint": {
+    en: "Not a company employee? Switch to customer mode or guest mode.",
+    zh: "不是公司员工，进入顾客模式或者游客模式。",
+    es: "Si no eres del personal, entra en modo cliente o modo invitado.",
   },
 
   "auth.register.title": { en: "Customer registration", zh: "顾客注册", es: "Registro de cliente" },

@@ -1825,6 +1825,17 @@ textarea {
   text-underline-offset: 3px;
 }
 
+.auth-page .auth-login-staff-owner-footer {
+  margin-top: 20px;
+}
+
+.auth-footer-link {
+  color: var(--red);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .header-user-inline {
   display: inline-flex;
   align-items: center;
