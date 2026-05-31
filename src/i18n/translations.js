@@ -177,6 +177,21 @@ const STR = {
   },
   "menuCard.addToCart": { en: "Add to cart", zh: "加入购物车", es: "Añadir al carrito" },
   "menuCard.review": { en: "Review", zh: "评价", es: "Reseña" },
+  "menuCard.reviewLoginTitle": {
+    en: "Sign in to leave a review",
+    zh: "登录后即可撰写评价",
+    es: "Inicia sesión para dejar una reseña",
+  },
+  "menuCard.reviewLoginHint": {
+    en: "Reviews are tied to your account so the kitchen can trust feedback. It only takes a moment.",
+    zh: "评价与账号绑定，便于追溯与信任。登录或注册后即可发表。",
+    es: "Las reseñas van con tu cuenta para que la cocina confíe en ellas.",
+  },
+  "menuCard.reviewPostedAs": {
+    en: "Posting as {name}",
+    zh: "以 {name} 发布",
+    es: "Publicando como {name}",
+  },
   "menuCard.name": { en: "Name", zh: "昵称", es: "Nombre" },
   "menuCard.rating": { en: "Rating", zh: "评分", es: "Valoración" },
   "menuCard.starsOption": { en: "{n} stars", zh: "{n} 星", es: "{n} estrellas" },

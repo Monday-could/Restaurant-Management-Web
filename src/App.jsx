@@ -25,6 +25,20 @@ import { LanguageSwitcher } from "./i18n/LanguageSwitcher.jsx";
 
 const STORAGE_KEY = "diner-desk-state-v2";
 
+/** Internal path only (e.g. `/menu`); used after login/register to avoid open redirects. */
+function sanitizeReturnToParam(raw) {
+  if (raw == null || typeof raw !== "string") return null;
+  let path = raw.trim();
+  try {
+    path = decodeURIComponent(path);
+  } catch {
+    return null;
+  }
+  if (!path.startsWith("/") || path.startsWith("//")) return null;
+  if (path.includes("://")) return null;
+  return path;
+}
+
 /** Queued add-dish preview rows (owner); survives tab switches and refresh within the same browser tab. */
 const OWNER_STAGED_SESSION_KEY = "diner-desk-owner-staged-preview-v1";
 
@@ -526,6 +540,8 @@ function LoginPage({ onLoginSuccess, pushToast }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const roleHint = searchParams.get("role") || "customer";
+  const returnTo = sanitizeReturnToParam(searchParams.get("returnTo"));
+  const registerHref = returnTo ? `/register?returnTo=${encodeURIComponent(returnTo)}` : "/register";
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -547,6 +563,7 @@ function LoginPage({ onLoginSuccess, pushToast }) {
       pushToast(t("toast.welcome", { name: session.username }));
       if (session.role === "staff") navigate("/orders", { replace: true });
       else if (session.role === "owner") navigate("/owner", { replace: true });
+      else if (returnTo) navigate(returnTo, { replace: true });
       else navigate("/menu", { replace: true });
     } catch (err) {
       const code = err?.code;
@@ -593,7 +610,7 @@ function LoginPage({ onLoginSuccess, pushToast }) {
         </button>
       </form>
       <p className="auth-secondary-actions">
-        <Link to="/register">{t("auth.login.linkRegister")}</Link>
+        <Link to={registerHref}>{t("auth.login.linkRegister")}</Link>
         {" · "}
         <Link to="/menu">{t("auth.login.linkGuest")}</Link>
       </p>
@@ -604,6 +621,9 @@ function LoginPage({ onLoginSuccess, pushToast }) {
 function RegisterPage({ onLoginSuccess, pushToast }) {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnTo = sanitizeReturnToParam(searchParams.get("returnTo"));
+  const loginHref = returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : "/login";
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -622,7 +642,7 @@ function RegisterPage({ onLoginSuccess, pushToast }) {
       const session = await registerCustomer({ username, password });
       onLoginSuccess(session);
       pushToast(t("toast.registerOk"));
-      navigate("/menu", { replace: true });
+      navigate(returnTo || "/menu", { replace: true });
     } catch (err) {
       const code = err?.code;
       setError(code ? t(`auth.error.${code}`) : t("auth.error.REGISTER_FAILED"));
@@ -678,7 +698,7 @@ function RegisterPage({ onLoginSuccess, pushToast }) {
         </button>
       </form>
       <p className="auth-secondary-actions">
-        <Link to="/login">{t("auth.register.linkLogin")}</Link>
+        <Link to={loginHref}>{t("auth.register.linkLogin")}</Link>
         {" · "}
         <Link to="/menu">{t("auth.login.linkGuest")}</Link>
       </p>
@@ -1629,7 +1649,15 @@ function MenuPage({ menu, orders, session, onOrder, onReview }) {
       {filteredMenu.length ? (
         <div className="menu-grid">
           {filteredMenu.map((item) => (
-            <MenuCard key={item.id} item={item} onOrder={onOrder} onReview={onReview} orders={orders} menuForBadges={visibleMenu} />
+            <MenuCard
+              key={item.id}
+              item={item}
+              onOrder={onOrder}
+              onReview={onReview}
+              session={session}
+              orders={orders}
+              menuForBadges={visibleMenu}
+            />
           ))}
         </div>
       ) : (
@@ -1644,11 +1672,11 @@ function MenuPage({ menu, orders, session, onOrder, onReview }) {
   );
 }
 
-function MenuCard({ item, onOrder, onReview, orders = [], menuForBadges = [] }) {
+function MenuCard({ item, onOrder, onReview, session = null, orders = [], menuForBadges = [] }) {
   const { t } = useI18n();
+  const location = useLocation();
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewsModalOpen, setReviewsModalOpen] = useState(false);
-  const [author, setAuthor] = useState("");
   const [rating, setRating] = useState(5);
   const [text, setText] = useState("");
 
@@ -1669,15 +1697,20 @@ function MenuCard({ item, onOrder, onReview, orders = [], menuForBadges = [] }) 
     return Math.round(total / item.reviews.length);
   }, [item.reviews]);
 
+  const returnToParam = useMemo(
+    () => encodeURIComponent(`${location.pathname}${location.search || ""}`),
+    [location.pathname, location.search],
+  );
+
   function submitReview(event) {
     event.preventDefault();
-    if (!text.trim() || !onReview) return;
+    if (!session || !text.trim() || !onReview) return;
+    const name = session.username?.trim() || "";
     onReview(item.id, {
-      author: author.trim() || "",
+      author: name,
       rating: Number(rating),
       text: text.trim(),
     });
-    setAuthor("");
     setText("");
     setRating(5);
     setReviewOpen(false);
@@ -1725,13 +1758,24 @@ function MenuCard({ item, onOrder, onReview, orders = [], menuForBadges = [] }) 
             </button>
           )}
         </div>
-        {reviewOpen && (
+        {reviewOpen && !session ? (
+          <div className="review-login-gate">
+            <p className="review-login-gate-title">{t("menuCard.reviewLoginTitle")}</p>
+            <p className="review-login-gate-hint">{t("menuCard.reviewLoginHint")}</p>
+            <div className="review-login-gate-actions">
+              <Link className="primary-cta small" to={`/login?returnTo=${returnToParam}`}>
+                {t("header.login")}
+              </Link>
+              <Link className="secondary-cta small" to={`/register?returnTo=${returnToParam}`}>
+                {t("header.register")}
+              </Link>
+            </div>
+          </div>
+        ) : null}
+        {reviewOpen && session ? (
           <form className="review-form" onSubmit={submitReview}>
-            <label>
-              {t("menuCard.name")}
-              <input value={author} onChange={(event) => setAuthor(event.target.value)} placeholder={t("common.guest")} />
-            </label>
-            <label>
+            <p className="review-form-account full-row">{t("menuCard.reviewPostedAs", { name: session.username })}</p>
+            <label className="full-row">
               {t("menuCard.rating")}
               <select value={rating} onChange={(event) => setRating(event.target.value)}>
                 {[5, 4, 3, 2, 1].map((value) => (
@@ -1750,11 +1794,11 @@ function MenuCard({ item, onOrder, onReview, orders = [], menuForBadges = [] }) 
                 rows="3"
               />
             </label>
-            <button className="primary-cta small" type="submit">
+            <button className="primary-cta small full-row" type="submit">
               {t("menuCard.sendReview")}
             </button>
           </form>
-        )}
+        ) : null}
         <section className="menu-card-reviews" aria-labelledby={`reviews-heading-${item.id}`}>
           <h4 className="menu-card-reviews-heading" id={`reviews-heading-${item.id}`}>
             {t("menuCard.recentReviews")}

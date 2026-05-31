@@ -906,6 +906,41 @@ h3 {
   background: var(--gray);
 }
 
+.review-login-gate {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 8px;
+  background: var(--gray);
+}
+
+.review-login-gate-title {
+  margin: 0;
+  font-weight: 900;
+  font-size: 16px;
+  color: var(--black);
+}
+
+.review-login-gate-hint {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-gray);
+}
+
+.review-login-gate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.review-form-account {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-gray);
+}
+
 label {
   display: grid;
   gap: 7px;
@@ -2715,6 +2750,11 @@ a.drawer-link.active {
   .review-form,
   .owner-form {
     grid-template-columns: 1fr;
+  }
+
+  .review-login-gate-actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .food-title-row,
