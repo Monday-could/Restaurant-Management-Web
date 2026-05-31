@@ -1701,11 +1701,20 @@ textarea {
   max-width: 1180px;
   margin-left: auto;
   margin-right: auto;
+  padding: 0 4px;
 }
 
 .profile-order-history-heading {
   font-size: clamp(22px, 3vw, 28px);
-  margin: 0;
+  margin: 0 0 10px;
+}
+
+.profile-order-history-intro {
+  margin: 0 0 20px;
+  max-width: 72ch;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text-gray);
 }
 
 .profile-order-ticket-list {
@@ -1728,6 +1737,13 @@ textarea {
   font-size: 14px;
   color: var(--text-gray);
   line-height: 1.5;
+}
+
+.profile-footnote a {
+  font-weight: 800;
+  color: var(--red);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 /* Login & register: centered column (all role entry URLs use .auth-page) */
@@ -1935,6 +1951,13 @@ a.header-user-name.header-user-name--link:hover {
   gap: 12px;
   align-items: center;
   margin-bottom: 20px;
+}
+
+.profile-auth-actions--centered {
+  justify-content: center;
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .owner-layout {

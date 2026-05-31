@@ -15,6 +15,8 @@ const STR = {
   },
   "header.navMenu": { en: "Menu", zh: "菜单", es: "Menú" },
   "header.navLocation": { en: "Location", zh: "门店位置", es: "Ubicación" },
+  "header.navMyOrders": { en: "My orders", zh: "我的订单", es: "Mis pedidos" },
+  "header.navLiveTickets": { en: "Live tickets", zh: "实时小票", es: "Tickets en vivo" },
   "header.login": { en: "Log in", zh: "登录", es: "Entrar" },
   "header.register": { en: "Register", zh: "注册", es: "Registrarse" },
   "header.logout": { en: "Log out", zh: "退出", es: "Salir" },
@@ -231,16 +233,28 @@ const STR = {
   "dishReviews.close": { en: "Close", zh: "关闭", es: "Cerrar" },
 
   "ordersPage.eyebrow": { en: "Orders", zh: "订单", es: "Pedidos" },
-  "ordersPage.customerTitle": { en: "Kitchen queue (staff only)", zh: "厨房队列（仅员工）", es: "Cola de cocina (solo personal)" },
-  "ordersPage.customerBody": {
-    en: "This site does not show a live order list to customers. Full ticket history and status are available in Staff mode after signing in with a staff account.",
-    zh: "本站不向顾客展示实时订单列表。完整小票与状态请在员工模式下使用员工账号登录后查看。",
-    es: "Esta web no muestra pedidos en vivo a clientes. El historial completo está en modo Personal tras iniciar sesión.",
+  "ordersPage.guestTitle": { en: "Sign in to see your orders", zh: "登录后查看您的订单", es: "Inicia sesión para ver tus pedidos" },
+  "ordersPage.guestBody": {
+    en: "Order history is tied to your account. Guests can still order from the menu, but past tickets are not listed here.",
+    zh: "订单历史与账号绑定。游客仍可点餐，但不会在此显示以往小票。",
+    es: "El historial va con tu cuenta. Los invitados pueden pedir, pero no ven tickets anteriores aquí.",
   },
-  "ordersPage.customerHint": {
-    en: "Need the menu? Head back to browse dishes and check out as usual.",
-    zh: "要点餐请返回菜单浏览菜品并照常结账。",
-    es: "¿Menú? Vuelve para ver platos y pagar con normalidad.",
+  "ordersPage.guestHint": {
+    en: "After you sign in, only your own checkouts appear — not anyone else's.",
+    zh: "登录后，您只会看到自己账号下的结账记录，不会看到他人订单。",
+    es: "Tras entrar solo verás tus propios pedidos, no los de otras personas.",
+  },
+  "ordersPage.historyTitle": { en: "My order history", zh: "我的订单历史", es: "Mi historial de pedidos" },
+  "ordersPage.historyBody": {
+    en: "Each signed-in customer only sees their own tickets. Kitchen actions for all guests stay in Staff mode.",
+    zh: "每位登录顾客仅能看到自己的订单小票；处理全店队列请使用员工模式。",
+    es: "Cada cliente solo ve sus propios tickets; la cola de cocina completa está en modo Personal.",
+  },
+  "ordersPage.historyEmptyTitle": { en: "No orders yet", zh: "暂无订单", es: "Aún no hay pedidos" },
+  "ordersPage.historyEmptyHint": {
+    en: "Place an order from the menu while signed in — it will show up here.",
+    zh: "请在登录状态下从菜单下单，记录会出现在此处。",
+    es: "Pide desde el menú con la sesión iniciada y aparecerá aquí.",
   },
 
   "staff.eyebrow": { en: "Staff mode", zh: "员工模式", es: "Modo personal" },
@@ -429,6 +443,29 @@ const STR = {
     zh: "当前身份：{role}。顾客可不登录使用菜单；员工与老板区域需使用对应账号登录。",
     es: "Has iniciado sesión como {role}. Los clientes pueden usar el menú sin cuenta; personal y dueño requieren acceso.",
   },
+  "profile.bodyCustomer": {
+    en: "Below is your own checkout history and ticket status (read-only). Guests do not get a saved history on this account.",
+    zh: "下方仅展示您本账号的点单记录与订单状态（只读）。游客点餐不会保存在账号里。",
+    es: "Abajo solo ves tu historial y el estado de tus tickets (solo lectura). Invitados no guardan historial.",
+  },
+  "profile.linkMyOrders": { en: "Open full list on Orders page", zh: "在订单页查看完整列表", es: "Ver lista completa en Pedidos" },
+  "profile.linkKitchenDesk": {
+    en: "Open staff orders desk (accept / decline / ready)",
+    zh: "前往员工订单工作台（接单、拒绝、已备好）",
+    es: "Abrir mostrador de pedidos (aceptar / rechazar / listo)",
+  },
+  "profile.orderHistoryTitle": { en: "Your order history", zh: "您的点单历史", es: "Tu historial de pedidos" },
+  "profile.orderHistoryIntro": {
+    en: "Only tickets placed while signed in with this account appear here. Each line shows kitchen status and ready state when applicable.",
+    zh: "仅显示使用本账号登录后产生的订单。每条显示厨房处理状态；已接单时会显示出餐是否已备好。",
+    es: "Solo entradas hechas con esta sesión. Cada línea muestra el estado y «listo» si aplica.",
+  },
+  "profile.orderHistoryEmptyTitle": { en: "No orders on this account yet", zh: "本账号暂无点单记录", es: "Aún no hay pedidos con esta cuenta" },
+  "profile.orderHistoryEmptyHint": {
+    en: "Order from the menu while signed in — your tickets and status updates will show up here.",
+    zh: "请在登录状态下从菜单下单，订单与状态更新会显示在此处。",
+    es: "Pide desde el menú con sesión iniciada; aquí verás tickets y estados.",
+  },
   "profile.roleStaff": { en: "Staff", zh: "员工", es: "Personal" },
   "profile.roleOwner": { en: "Owner", zh: "老板", es: "Dueño/a" },
   "profile.roleCustomer": { en: "Customer", zh: "顾客", es: "Cliente" },
@@ -446,9 +483,9 @@ const STR = {
   "auth.login.linkRegister": { en: "No account yet? Register", zh: "还没有账号？去注册", es: "¿Sin cuenta? Regístrate" },
   "auth.login.linkGuest": { en: "Continue as guest", zh: "以游客继续浏览", es: "Continuar como invitado" },
   "auth.login.noticeProfile": {
-    en: "Log in to open your profile. Order history is not shown on the customer site — staff handle tickets in Staff mode.",
-    zh: "请登录后查看个人资料。本站不向顾客展示订单历史；员工请在「员工模式」中处理小票。",
-    es: "Inicia sesión para ver tu perfil. El historial de pedidos no se muestra aquí; el personal usa modo Personal.",
+    en: "Log in to open your profile and see your own order history and status below.",
+    zh: "请登录后查看个人资料，并在下方查看您本人的点单历史与订单状态。",
+    es: "Inicia sesión para tu perfil y ver abajo tu historial y estado de pedidos.",
   },
   "auth.login.staffOwnerFooterHint": {
     en: "Not a company employee? Switch to customer mode or guest mode.",

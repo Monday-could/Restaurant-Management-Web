@@ -335,6 +335,14 @@ function migrateOrderRow(order) {
   return { ...order, placedById: GUEST_PLACED_BY_ID };
 }
 
+/** Lines placed while signed in as this user (excludes guest checkout id). Owner kitchen list may include all rows — filter here for personal history. */
+function getPersonalOrdersForSession(session, orders) {
+  if (!session?.id) return [];
+  const sid = String(session.id);
+  const rows = (Array.isArray(orders) ? orders : []).filter((o) => String(o.placedById || "") === sid);
+  return [...rows].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
 function formatPrice(value) {
   return `$${Number(value).toFixed(2)}`;
 }
@@ -1179,6 +1187,9 @@ function App() {
         <nav className="desktop-nav" aria-label={t("nav.primaryAria")}>
           <NavLink to="/menu">{t("header.navMenu")}</NavLink>
           <NavLink to="/location">{t("header.navLocation")}</NavLink>
+          {authSession?.role === "customer" ? (
+            <NavLink to="/orders">{t("header.navMyOrders")}</NavLink>
+          ) : null}
           {!authSession ? (
             <>
               <NavLink to="/login">{t("header.login")}</NavLink>
@@ -1218,6 +1229,7 @@ function App() {
                 {t("header.addDish")}
               </NavLink>
               <NavLink to="/owner/edit">{t("header.editMenu")}</NavLink>
+              <NavLink to="/orders">{t("header.navLiveTickets")}</NavLink>
             </>
           ) : null}
         </nav>
@@ -1313,6 +1325,11 @@ function App() {
             <MobileLink to="/location" onDone={() => setDrawerOpen(false)}>
               {t("drawer.location")}
             </MobileLink>
+            {authSession?.role === "customer" ? (
+              <MobileLink to="/orders" onDone={() => setDrawerOpen(false)}>
+                {t("header.navMyOrders")}
+              </MobileLink>
+            ) : null}
             {!authSession ? (
               <>
                 <MobileLink to="/login" onDone={() => setDrawerOpen(false)}>
@@ -1373,6 +1390,9 @@ function App() {
                 </MobileLink>
                 <MobileLink to="/owner/edit" onDone={() => setDrawerOpen(false)}>
                   {t("header.editMenu")}
+                </MobileLink>
+                <MobileLink to="/orders" onDone={() => setDrawerOpen(false)}>
+                  {t("header.navLiveTickets")}
                 </MobileLink>
               </>
             ) : null}
@@ -1447,7 +1467,7 @@ function App() {
           <Route
             path="/profile"
             element={
-              <ProfilePage session={authSession} />
+              <ProfilePage session={authSession} orders={state.orders} />
             }
           />
           <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
@@ -2061,26 +2081,47 @@ function MenuCard({
 
 function OrdersPage({ mode, session, orders, onStatusChange, onReady }) {
   const { t } = useI18n();
-  if (session?.role === "staff") {
+  if (session?.role === "staff" || session?.role === "owner") {
     return <StaffMode orders={orders} onStatusChange={onStatusChange} onReady={onReady} />;
   }
   if (mode === "staff") {
     return <Navigate to="/login?role=staff" replace />;
   }
 
+  if (!session) {
+    return (
+      <section className="content-section page-section" aria-labelledby="orders-title">
+        <div className="section-heading">
+          <p className="eyebrow">{t("ordersPage.eyebrow")}</p>
+          <h2 id="orders-title">{t("ordersPage.guestTitle")}</h2>
+          <p>{t("ordersPage.guestBody")}</p>
+        </div>
+        <div className="profile-auth-actions profile-auth-actions--centered">
+          <Link className="primary-cta" to="/login">
+            {t("profile.login")}
+          </Link>
+          <Link className="secondary-cta" to="/register">
+            {t("profile.register")}
+          </Link>
+        </div>
+        <div className="empty-state empty-state--soft profile-empty-panel">
+          <p className="empty-state-hint">{t("ordersPage.guestHint")}</p>
+          <Link className="primary-cta" to="/menu">
+            {t("profile.goMenu")}
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="content-section page-section" aria-labelledby="orders-title">
       <div className="section-heading">
         <p className="eyebrow">{t("ordersPage.eyebrow")}</p>
-        <h2 id="orders-title">{t("ordersPage.customerTitle")}</h2>
-        <p>{t("ordersPage.customerBody")}</p>
+        <h2 id="orders-title">{t("ordersPage.historyTitle")}</h2>
+        <p>{t("ordersPage.historyBody")}</p>
       </div>
-      <div className="empty-state empty-state--soft profile-empty-panel">
-        <p className="empty-state-hint">{t("ordersPage.customerHint")}</p>
-        <Link className="primary-cta" to="/menu">
-          {t("profile.goMenu")}
-        </Link>
-      </div>
+      <CustomerOrderHistory session={session} orders={orders} />
     </section>
   );
 }
@@ -2183,6 +2224,38 @@ function OrderTicket({ order, children, onReady, hideReadyState = false }) {
         </div>
       </div>
     </article>
+  );
+}
+
+function CustomerOrderHistory({ session, orders, context = "orders" }) {
+  const { t } = useI18n();
+  const mine = useMemo(() => getPersonalOrdersForSession(session, orders), [session?.id, orders]);
+  const onProfile = context === "profile";
+
+  if (!mine.length) {
+    return (
+      <div className="empty-state empty-state--soft profile-empty-panel">
+        <p className="empty-state-title">
+          {onProfile ? t("profile.orderHistoryEmptyTitle") : t("ordersPage.historyEmptyTitle")}
+        </p>
+        <p className="empty-state-hint">
+          {onProfile ? t("profile.orderHistoryEmptyHint") : t("ordersPage.historyEmptyHint")}
+        </p>
+        <Link className="primary-cta" to="/menu">
+          {t("profile.goMenu")}
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="order-history">
+      <div className="ticket-list" role="list">
+        {mine.map((order) => (
+          <OrderTicket key={order.id} order={order} />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -2970,7 +3043,7 @@ function LocationPage() {
   );
 }
 
-function ProfilePage({ session }) {
+function ProfilePage({ session, orders = [] }) {
   const { t } = useI18n();
   const roleKey =
     session?.role === "staff"
@@ -3004,9 +3077,32 @@ function ProfilePage({ session }) {
           <h2 id="profile-title">{t("profile.titleLogged", { name: session.username })}</h2>
         )}
         <p>
-          {session ? t("profile.bodyStaff", { role: roleLabel }) : t("profile.bodyGuest")}
+          {!session
+            ? t("profile.bodyGuest")
+            : session.role === "customer"
+              ? t("profile.bodyCustomer")
+              : t("profile.bodyStaff", { role: roleLabel })}
         </p>
       </div>
+      {session ? (
+        <div className="profile-order-history" aria-labelledby="profile-order-history-title">
+          <h3 id="profile-order-history-title" className="profile-order-history-heading">
+            {t("profile.orderHistoryTitle")}
+          </h3>
+          <p className="profile-order-history-intro">{t("profile.orderHistoryIntro")}</p>
+          <CustomerOrderHistory session={session} orders={orders} context="profile" />
+          {session.role === "customer" ? (
+            <p className="profile-footnote profile-order-history-actions">
+              <Link to="/orders">{t("profile.linkMyOrders")}</Link>
+            </p>
+          ) : null}
+          {session.role === "staff" || session.role === "owner" ? (
+            <p className="profile-footnote profile-order-history-actions">
+              <Link to="/orders">{t("profile.linkKitchenDesk")}</Link>
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }
