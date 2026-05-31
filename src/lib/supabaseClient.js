@@ -28,3 +28,8 @@ export function getSupabase() {
 export function isSupabaseConfigured() {
   return Boolean(url && anonKey);
 }
+
+export function getSupabaseRestConfig() {
+  if (!url || !anonKey) return null;
+  return { url, anonKey };
+}

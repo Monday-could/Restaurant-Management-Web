@@ -44,16 +44,15 @@ function registerEmailFromUsername(raw) {
   return `${part}@${AUTH_EMAIL_DOMAIN}`;
 }
 
-async function sessionToAppSession(session) {
+/** @param {import('@supabase/supabase-js').Session | null} session @param {AbortSignal} [signal] */
+async function sessionToAppSession(session, signal) {
   if (!session?.user?.id) return null;
   const sb = getSupabase();
   if (!sb) return null;
 
-  const { data: profile, error } = await sb
-    .from("profiles")
-    .select("username, display_name, role")
-    .eq("id", session.user.id)
-    .maybeSingle();
+  let q = sb.from("profiles").select("username, display_name, role").eq("id", session.user.id);
+  if (signal) q = q.abortSignal(signal);
+  const { data: profile, error } = await q.maybeSingle();
 
   if (error) return null;
   if (!profile) return null;
@@ -68,13 +67,14 @@ async function sessionToAppSession(session) {
   };
 }
 
-export async function bootstrapAuthSession() {
+/** @param {AbortSignal} [signal] reserved for callers that need to cancel the profiles query */
+export async function bootstrapAuthSession(signal) {
   const sb = getSupabase();
   if (!sb) return null;
   const {
     data: { session },
   } = await sb.auth.getSession();
-  return sessionToAppSession(session);
+  return sessionToAppSession(session, signal);
 }
 
 /**

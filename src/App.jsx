@@ -15,7 +15,6 @@ import {
 } from "react-router-dom";
 
 import {
-  bootstrapAuthSession,
   login as authLogin,
   logout,
   modeFromSession,
@@ -23,6 +22,7 @@ import {
   subscribeAuth,
 } from "./services/authService.js";
 import { isSupabaseConfigured } from "./lib/supabaseClient.js";
+import { withTimeout } from "./lib/withTimeout.js";
 import {
   deleteMenuItem as deleteMenuItemRemote,
   fetchMenuWithReviews,
@@ -89,6 +89,16 @@ const POPULAR_SALES_TOP_N = 5;
 /** How many newest reviews to show on each menu card before opening the full list modal. */
 const MENU_CARD_REVIEW_PREVIEW_COUNT = 3;
 const TOAST_TTL_MS = 4200;
+/** Safety net if menu REST never settles. Kept separate from orders so authSession changes cannot abort menu mid-flight. */
+const MENU_LOAD_TIMEOUT_MS = 8_000;
+const ORDERS_LOAD_TIMEOUT_MS = 8_000;
+
+function isAbortLikeError(e) {
+  if (!e || e.code === "TIMEOUT") return false;
+  const name = String(e.name || "");
+  const msg = String(e.message || "").toLowerCase();
+  return name === "AbortError" || msg.includes("abort") || msg.includes("aborted");
+}
 
 const AUTO_BADGE_SEASONAL_NEW = "Seasonal/New";
 
@@ -333,7 +343,7 @@ function loadPersistedCart() {
 }
 
 const initialState = {
-  menu: [],
+  menu: starterMenu.map((row) => normalizeMenuItemFromPersisted({ ...row })),
   orders: [],
   cart: loadPersistedCart(),
 };
@@ -723,9 +733,9 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const stateRef = useRef(initialState);
-  const [authReady, setAuthReady] = useState(() => !isSupabaseConfigured());
-  const [dataReady, setDataReady] = useState(() => !isSupabaseConfigured());
   const [mode, setMode] = useState("customer");
+  /** Remote data loads in the background; seed data stays visible if Supabase is slow. */
+  const [dataReady, setDataReady] = useState(true);
   const [authSession, setAuthSession] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [state, setState] = useState(initialState);
@@ -746,52 +756,101 @@ function App() {
   }, [state]);
 
   useEffect(() => {
+    if (state.menu.length) return;
+    setState((current) => {
+      if (current.menu.length) return current;
+      return {
+        ...current,
+        menu: starterMenu.map((row) => normalizeMenuItemFromPersisted({ ...row })),
+      };
+    });
+  }, [state.menu.length]);
+
+  useEffect(() => {
     if (!isSupabaseConfigured()) return;
-    let cancelled = false;
-    (async () => {
-      const s = await bootstrapAuthSession();
-      if (cancelled) return;
-      setAuthSession(s);
-      setMode(modeFromSession(s));
-      setAuthReady(true);
-    })();
+    // Do NOT call auth.getSession() here: onAuthStateChange already runs initialize + INITIAL_SESSION
+    // under the same storage lock. A parallel getSession() competes for the lock and can block tens of
+    // seconds while the token refresh runs twice in effect.
     const { data } = subscribeAuth((s) => {
       setAuthSession(s);
       setMode(modeFromSession(s));
     });
     return () => {
-      cancelled = true;
       data.subscription.unsubscribe();
     };
   }, []);
 
+  // Menu + reviews: deps MUST NOT include authSession. When subscribeAuth fires INITIAL_SESSION,
+  // setAuthSession would re-run this effect and abort the in-flight menu fetch — requests restart in a
+  // loop until withTimeout fires (felt as "Supabase is slow").
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
-    if (!authReady) return;
+    const abortController = new AbortController();
+    const { signal } = abortController;
     let cancelled = false;
     (async () => {
       try {
-        const [menu, orders] = await Promise.all([
-          fetchMenuWithReviews(),
-          fetchOrdersForSession(authSession),
-        ]);
-        if (cancelled) return;
-        setState((prev) => ({
-          ...prev,
-          menu: menu.map(normalizeMenuItemFromPersisted),
-          orders: orders.map(migrateOrderRow),
-        }));
+        const menu = await withTimeout(fetchMenuWithReviews(signal), MENU_LOAD_TIMEOUT_MS, "menu");
+        if (!cancelled) {
+          setState((prev) => ({
+            ...prev,
+            menu: menu.map(normalizeMenuItemFromPersisted),
+          }));
+        }
       } catch (e) {
-        console.error(e);
-        pushToast(t("toast.dataLoadError"), "error");
+        if (isAbortLikeError(e)) {
+          /* effect cleanup aborted in-flight fetch */
+        } else {
+          console.error(e);
+          if (e?.code === "TIMEOUT") {
+            pushToast(t("toast.dataLoadTimeout"), "error");
+          } else {
+            pushToast(t("toast.dataLoadError"), "error");
+          }
+        }
       } finally {
-        if (!cancelled) setDataReady(true);
+        setDataReady(true);
       }
     })();
     return () => {
       cancelled = true;
+      abortController.abort();
     };
-  }, [authReady, authSession?.id, authSession?.role, t, pushToast]);
+  }, [t, pushToast]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    const abortController = new AbortController();
+    const { signal } = abortController;
+    let cancelled = false;
+    (async () => {
+      try {
+        const orders = await withTimeout(
+          fetchOrdersForSession(authSession, signal),
+          ORDERS_LOAD_TIMEOUT_MS,
+          "orders",
+        );
+        if (!cancelled) {
+          setState((prev) => ({
+            ...prev,
+            orders: orders.map(migrateOrderRow),
+          }));
+        }
+      } catch (e) {
+        if (isAbortLikeError(e)) return;
+        console.error(e);
+        if (e?.code === "TIMEOUT") {
+          pushToast(t("toast.dataLoadTimeout"), "error");
+        } else {
+          pushToast(t("toast.dataLoadError"), "error");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      abortController.abort();
+    };
+  }, [authSession?.id, authSession?.role, t, pushToast]);
 
   const modes = useMemo(
     () => [
@@ -1135,7 +1194,7 @@ function App() {
           <p>{t("app.supabaseBanner")}</p>
         </div>
       ) : null}
-      {isSupabaseConfigured() && (!authReady || !dataReady) ? (
+      {isSupabaseConfigured() && !dataReady ? (
         <div className="app-loading-overlay" role="status" aria-live="polite">
           <p className="app-loading-overlay-text">{t("app.dataLoading")}</p>
         </div>

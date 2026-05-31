@@ -34,8 +34,9 @@ function toRow(o) {
 
 /**
  * @param {{ id: string, role: string } | null} session
+ * @param {AbortSignal} [signal]
  */
-export async function fetchOrdersForSession(session) {
+export async function fetchOrdersForSession(session, signal) {
   const sb = getSupabase();
   if (!sb) return [];
 
@@ -44,16 +45,16 @@ export async function fetchOrdersForSession(session) {
   }
 
   if (session.role === "staff" || session.role === "owner") {
-    const { data, error } = await sb.from("orders").select("*").order("created_at", { ascending: false });
+    let q = sb.from("orders").select("*");
+    if (signal) q = q.abortSignal(signal);
+    const { data, error } = await q.order("created_at", { ascending: false });
     if (error) throw error;
     return (data || []).map(mapOrderRow);
   }
 
-  const { data, error } = await sb
-    .from("orders")
-    .select("*")
-    .eq("placed_by_id", session.id)
-    .order("created_at", { ascending: false });
+  let q = sb.from("orders").select("*").eq("placed_by_id", session.id);
+  if (signal) q = q.abortSignal(signal);
+  const { data, error } = await q.order("created_at", { ascending: false });
   if (error) throw error;
   return (data || []).map(mapOrderRow);
 }

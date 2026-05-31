@@ -76,6 +76,16 @@ const STR = {
     zh: "无法从服务器加载菜单或订单。",
     es: "No se pudo cargar el menú o los pedidos.",
   },
+  "toast.authBootstrapTimeout": {
+    en: "Sign-in check is taking too long — you can keep browsing; try refreshing if login looks wrong.",
+    zh: "登录状态检查超时 — 可先继续浏览；若登录状态异常请刷新页面。",
+    es: "La comprobación de sesión tarda demasiado — puedes seguir navegando; recarga si el inicio de sesión falla.",
+  },
+  "toast.dataLoadTimeout": {
+    en: "Menu or orders did not load in time — check your network or Supabase project status, then refresh.",
+    zh: "菜单或订单加载超时 — 请检查网络或 Supabase 项目是否正常，然后刷新页面。",
+    es: "El menú o los pedidos tardaron demasiado — revisa la red o el estado del proyecto Supabase y recarga.",
+  },
   "toast.supabaseMissing": {
     en: "Supabase is not configured — add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env.",
     zh: "未配置 Supabase：请在 .env 中填写 VITE_SUPABASE_URL 与 VITE_SUPABASE_ANON_KEY。",

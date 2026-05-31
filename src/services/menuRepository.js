@@ -1,4 +1,4 @@
-import { getSupabase } from "../lib/supabaseClient.js";
+import { getSupabase, getSupabaseRestConfig } from "../lib/supabaseClient.js";
 import { resolveMenuImageForPersist } from "./menuImageStorage.js";
 
 function mapBadges(row) {
@@ -40,20 +40,52 @@ function mapReviewRow(r) {
   };
 }
 
-export async function fetchMenuWithReviews() {
-  const sb = getSupabase();
-  if (!sb) return [];
+async function fetchJsonFromRest(path, signal) {
+  const cfg = getSupabaseRestConfig();
+  if (!cfg) return [];
+  const response = await fetch(`${cfg.url}/rest/v1/${path}`, {
+    headers: {
+      apikey: cfg.anonKey,
+      Authorization: `Bearer ${cfg.anonKey}`,
+    },
+    signal,
+  });
+  if (!response.ok) {
+    const err = new Error(`Supabase REST ${path} failed with ${response.status}`);
+    err.status = response.status;
+    try {
+      err.details = await response.text();
+    } catch {
+      /* ignore body read failures */
+    }
+    throw err;
+  }
+  return response.json();
+}
 
-  const { data: items, error: e1 } = await sb.from("menu_items").select("*").order("created_at", { ascending: false });
-  if (e1) throw e1;
+/** @param {AbortSignal} [signal] */
+export async function fetchMenuWithReviews(signal) {
+  const items = await fetchJsonFromRest("menu_items?select=*&order=created_at.desc", signal);
   if (!items?.length) return [];
 
   const ids = items.map((i) => i.id);
-  const { data: revs, error: e2 } = await sb.from("reviews").select("*").in("menu_item_id", ids).order("created_at", { ascending: false });
-  if (e2) throw e2;
+
+  let revs = [];
+  if (ids.length > 0) {
+    try {
+      const reviewFilter = encodeURIComponent(`in.(${ids.join(",")})`);
+      revs = await fetchJsonFromRest(
+        `reviews?select=*&menu_item_id=${reviewFilter}&order=created_at.desc`,
+        signal,
+      );
+    } catch (e) {
+      if (signal?.aborted) throw e;
+      console.warn("Reviews could not be loaded; continuing with menu items only.", e);
+    }
+  }
 
   const reviewsByItemId = new Map();
-  for (const r of revs || []) {
+  for (const r of revs) {
     const list = reviewsByItemId.get(r.menu_item_id) || [];
     list.push(mapReviewRow(r));
     reviewsByItemId.set(r.menu_item_id, list);
