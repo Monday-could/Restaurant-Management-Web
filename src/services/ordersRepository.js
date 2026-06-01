@@ -1,11 +1,17 @@
 import { getSupabase } from "../lib/supabaseClient.js";
-
-const MAX_ORDER_QUANTITY = 50;
+import { MAX_ORDER_QUANTITY, clampInteger } from "../lib/securityLimits.js";
 
 function normalizeOrderQuantity(value) {
-  const q = Math.floor(Number(value));
-  if (!Number.isFinite(q)) return 1;
-  return Math.max(1, Math.min(MAX_ORDER_QUANTITY, q));
+  return clampInteger(value, 1, MAX_ORDER_QUANTITY, 1);
+}
+
+function assertOrderQuantityTotal(rows) {
+  const total = rows.reduce((sum, row) => sum + normalizeOrderQuantity(row.quantity), 0);
+  if (total > MAX_ORDER_QUANTITY) {
+    const err = new Error(`Order quantity cannot exceed ${MAX_ORDER_QUANTITY}.`);
+    err.code = "ORDER_QUANTITY_LIMIT_EXCEEDED";
+    throw err;
+  }
 }
 
 function mapOrderRow(row) {
@@ -76,6 +82,7 @@ export async function insertOrders(appOrders) {
   if (!appOrders.length) return;
 
   const rows = appOrders.map(toRow);
+  assertOrderQuantityTotal(rows);
   const { error } = await sb.from("orders").insert(rows);
   if (error) throw error;
 }

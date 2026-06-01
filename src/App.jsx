@@ -24,6 +24,13 @@ import {
 import { isSupabaseConfigured } from "./lib/supabaseClient.js";
 import { withTimeout } from "./lib/withTimeout.js";
 import {
+  MAX_ORDER_QUANTITY,
+  MAX_REVIEW_BODY_LENGTH,
+  MIN_REVIEW_BODY_LENGTH,
+  clampInteger,
+  sanitizeText,
+} from "./lib/securityLimits.js";
+import {
   deleteMenuItem as deleteMenuItemRemote,
   fetchMenuWithReviews,
   insertMenuItem,
@@ -40,8 +47,6 @@ import { useI18n } from "./i18n/I18nContext.jsx";
 import { LanguageSwitcher } from "./i18n/LanguageSwitcher.jsx";
 
 const STORAGE_KEY = "diner-desk-state-v2";
-const MAX_ORDER_QUANTITY = 50;
-
 /** Internal path only (e.g. `/menu`); used after login/register to avoid open redirects. */
 function sanitizeReturnToParam(raw) {
   if (raw == null || typeof raw !== "string") return null;
@@ -324,9 +329,7 @@ function loadPersistedCart() {
 }
 
 function normalizeCartQuantity(value) {
-  const q = Math.floor(Number(value));
-  if (!Number.isFinite(q)) return 1;
-  return Math.max(1, Math.min(MAX_ORDER_QUANTITY, q));
+  return clampInteger(value, 1, MAX_ORDER_QUANTITY, 1);
 }
 
 function getCartQuantity(cart) {
@@ -1062,13 +1065,16 @@ function App() {
   }
 
   async function addReview(itemId, review) {
-    if (!isSupabaseConfigured() || !authSession?.id) return;
+    if (!isSupabaseConfigured() || !authSession?.id) return false;
     try {
       await insertReview(itemId, review, authSession.id);
       const menu = await fetchMenuWithReviews();
       setState((c) => ({ ...c, menu: menu.map(normalizeMenuItemFromPersisted) }));
+      return true;
     } catch (e) {
       console.error(e);
+      enqueueToast(e?.code === "REVIEW_TOO_SHORT" ? t("toast.reviewTooShort") : t("toast.reviewFailed"));
+      return false;
     }
   }
 
@@ -1904,6 +1910,7 @@ function MenuCard({
   const [reviewsModalOpen, setReviewsModalOpen] = useState(false);
   const [rating, setRating] = useState(5);
   const [text, setText] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
   const controlledReview = typeof onReviewPanelToggle === "function";
   const reviewOpen = controlledReview ? reviewOpenProp : fallbackReviewOpen;
@@ -1940,15 +1947,25 @@ function MenuCard({
     [location.pathname, location.search],
   );
 
-  function submitReview(event) {
+  const cleanReviewText = sanitizeText(text, { maxLength: MAX_REVIEW_BODY_LENGTH });
+  const canSubmitReview = cleanReviewText.length >= MIN_REVIEW_BODY_LENGTH && !reviewSubmitting;
+
+  async function submitReview(event) {
     event.preventDefault();
-    if (!session || !text.trim() || !onReview) return;
+    if (!session || !onReview || !canSubmitReview) return;
     const name = session.username?.trim() || "";
-    onReview(item.id, {
-      author: name,
-      rating: Number(rating),
-      text: text.trim(),
-    });
+    setReviewSubmitting(true);
+    let ok = false;
+    try {
+      ok = await onReview(item.id, {
+        author: name,
+        rating: Number(rating),
+        text: cleanReviewText,
+      });
+    } finally {
+      setReviewSubmitting(false);
+    }
+    if (!ok) return;
     setText("");
     setRating(5);
     closeReviewPanel();
@@ -2030,10 +2047,13 @@ function MenuCard({
                 onChange={(event) => setText(event.target.value)}
                 placeholder={t("menuCard.reviewPlaceholder")}
                 rows="3"
+                minLength={MIN_REVIEW_BODY_LENGTH}
+                maxLength={MAX_REVIEW_BODY_LENGTH}
+                required
               />
             </label>
-            <button className="primary-cta small full-row" type="submit">
-              {t("menuCard.sendReview")}
+            <button className="primary-cta small full-row" type="submit" disabled={!canSubmitReview}>
+              {reviewSubmitting ? t("common.saving") : t("menuCard.sendReview")}
             </button>
           </form>
         ) : null}

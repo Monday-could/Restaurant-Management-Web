@@ -78,6 +78,16 @@ const STR = {
     zh: "That dish has existing orders. Apply the Supabase cascade-delete migration, then try again.",
     es: "That dish has existing orders. Apply the Supabase cascade-delete migration, then try again.",
   },
+  "toast.reviewTooShort": {
+    en: "Please write a slightly longer review before submitting.",
+    zh: "Please write a slightly longer review before submitting.",
+    es: "Please write a slightly longer review before submitting.",
+  },
+  "toast.reviewFailed": {
+    en: "Could not save that review. Try again in a moment.",
+    zh: "Could not save that review. Try again in a moment.",
+    es: "Could not save that review. Try again in a moment.",
+  },
 
   "app.supabaseBanner": {
     en: "Supabase environment variables are not configured.",
@@ -542,6 +552,7 @@ const STR = {
   "common.walkInGuest": { en: "Walk-in Guest", zh: "到店顾客", es: "Cliente sin reserva" },
   "common.close": { en: "Close", zh: "关闭", es: "Cerrar" },
   "common.cancel": { en: "Cancel", zh: "取消", es: "Cancelar" },
+  "common.saving": { en: "Saving...", zh: "Saving...", es: "Saving..." },
   "common.notifications": { en: "Load error alerts", zh: "加载错误提示", es: "Avisos de error de carga" },
   "common.dismissNotification": { en: "Dismiss notification", zh: "关闭通知", es: "Descartar aviso" },
 

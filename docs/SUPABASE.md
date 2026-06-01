@@ -33,7 +33,7 @@ supabase db push
 
 Alternatively, paste the migration file contents into the Dashboard **SQL Editor** (respect order; run once).
 
-Migrations create: `profiles`, `menu_items`, `reviews`, `orders`, and the Storage bucket **`menu-images`** (public read; writes restricted to the `owner` role). A follow-up migration grants **`anon` / `authenticated`** table privileges required by PostgREST (RLS is not enough on its own). Later migrations adjust orders visibility and **`ON DELETE CASCADE`** from `orders.item_id` to `menu_items` so owners can delete dishes that already have order lines (see `20250603120000_orders_menu_item_cascade_delete.sql`).
+Migrations create: `profiles`, `menu_items`, `reviews`, `orders`, and the Storage bucket **`menu-images`** (public read; writes restricted to the `owner` role). A follow-up migration grants **`anon` / `authenticated`** table privileges required by PostgREST (RLS is not enough on its own). Later migrations adjust orders visibility, add **`ON DELETE CASCADE`** from `orders.item_id` to `menu_items`, and add security hardening for review spam plus order quantity/rate limits (see `20260531170000_security_hardening.sql`).
 
 ## Permissions (GRANT)
 
@@ -69,6 +69,8 @@ On the login screen you can enter **`worker` / `boss`** (the app appends `@` + `
 | Staff / owner     | Read all                  | Read all; owner may edit/delete others | Read all; update status / ready flags                          |
 
 If you previously applied `20250601140000_orders_select_live_board.sql` and want the database to match the SPA again, apply `20250601150000_revoke_orders_anon_select.sql` (drops that policy and revokes `anon` SELECT on `orders`).
+
+Security hardening in `20260531170000_security_hardening.sql` adds database-side checks that the browser cannot bypass: order line quantity must stay between 1 and 50, a single `placed_by_id` cannot submit more than 50 items in 30 seconds, each signed-in user gets one review per dish, review text is capped to 3-500 characters, and review inserts are rate-limited.
 
 ## MCP / Cursor
 
