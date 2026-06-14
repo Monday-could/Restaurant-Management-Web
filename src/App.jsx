@@ -965,14 +965,6 @@ function App() {
     navigate("/menu");
   }, [navigate]);
 
-  const exitStaffOrOwnerForGuestBrowse = useCallback(async () => {
-    if (authSession?.role === "staff" || authSession?.role === "owner") {
-      await logout();
-      setAuthSession(null);
-      setMode("customer");
-    }
-  }, [authSession]);
-
   useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ cart: state.cart }));
@@ -1357,7 +1349,6 @@ function App() {
             className="order-button"
             type="button"
             onClick={() => {
-              exitStaffOrOwnerForGuestBrowse();
               setMode("customer");
               navigate("/menu");
             }}
