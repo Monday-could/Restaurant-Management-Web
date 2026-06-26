@@ -74,7 +74,7 @@ Then open the URL shown in the terminal (default dev server: `http://127.0.0.1:5
 | -------- | -------- | ---------- |
 | Staff    | `worker` | `imworker` |
 | Owner    | `boss`   | `imboss`   |
-| Customer | Register in the UI (Supabase Auth); short names become `name@monday.com` (see `AUTH_EMAIL_DOMAIN` in `authService.js`). |
+| Customer | `test`   |  `imtest`  |
 
 Reserved usernames cannot be used for self-registration (`worker`, `boss`, etc.).
 
