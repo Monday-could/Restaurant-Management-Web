@@ -7,6 +7,8 @@ export function Icon({ name }) {
     check: "m5 13 4 4L19 7",
     x: "M18 6 6 18M6 6l12 12",
     pin: "M12 21s7-5.2 7-11a7 7 0 1 0-14 0c0 5.8 7 11 7 11Zm0-8a3 3 0 1 0 0-6 3 3 0 0 0 0 6",
+    chevronDown: "M6 9l6 6 6-6",
+    chevronUp: "M18 15l-6-6-6 6",
   };
 
   return (

@@ -307,6 +307,16 @@ const STR = {
   "staff.ready": { en: "Ready", zh: "已备好", es: "Listo" },
   "staff.readyYes": { en: "READY", zh: "已备好", es: "LISTO" },
   "staff.readyNo": { en: "NOT READY", zh: "未备好", es: "NO LISTO" },
+  "staff.expandHandled": {
+    en: "Show all {count} handled tickets",
+    zh: "展开全部 {count} 条已处理小票",
+    es: "Mostrar los {count} tickets gestionados",
+  },
+  "staff.collapseHandled": {
+    en: "Show only the latest {limit}",
+    zh: "仅显示最近 {limit} 条",
+    es: "Mostrar solo los últimos {limit}",
+  },
 
   "ownerUpload.title": { en: "Upload dish image", zh: "上传菜品图片", es: "Subir imagen del plato" },
   "ownerUpload.intro": {

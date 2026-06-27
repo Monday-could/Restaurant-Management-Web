@@ -1644,10 +1644,74 @@ textarea {
   align-items: start;
 }
 
+.staff-layout .ticket-list--staff-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.staff-layout .ticket-list--staff-grid .ticket {
+  padding: 12px 10px;
+  gap: 10px;
+  border-left-width: 5px;
+}
+
+.staff-layout .ticket-list--staff-grid .ticket h3 {
+  font-size: 1rem;
+  line-height: 1.25;
+  margin-bottom: 4px;
+  overflow-wrap: anywhere;
+}
+
+.staff-layout .ticket-list--staff-grid .ticket p {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.staff-layout .ticket-list--staff-grid .ticket-meta {
+  font-size: 11px;
+}
+
+.staff-layout .ticket-list--staff-grid .ticket-footer {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.staff-layout .ticket-list--staff-grid .ticket-actions {
+  justify-content: flex-start;
+}
+
+.staff-layout .ticket-list--staff-grid .accept-button,
+.staff-layout .ticket-list--staff-grid .decline-button,
+.staff-layout .ticket-list--staff-grid .ready-button {
+  padding: 0 10px;
+  min-height: 28px;
+  font-size: 11px;
+}
+
+.staff-layout .ticket-list--staff-grid .status-pill,
+.staff-layout .ticket-list--staff-grid .ready-pill {
+  align-self: flex-start;
+  min-height: 24px;
+  padding: 0 8px;
+  font-size: 10px;
+}
+
+.staff-layout .ticket-list--staff-grid .staff-empty {
+  grid-column: 1 / -1;
+}
+
 .panel-title {
   font-family: var(--font-display);
   font-size: 30px;
   text-transform: uppercase;
+}
+
+.staff-handled-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
 }
 
 .accept-button,
@@ -2867,6 +2931,10 @@ a.drawer-link.active {
   .staff-layout,
   .owner-layout,
   .location-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .staff-layout .ticket-list--staff-grid {
     grid-template-columns: 1fr;
   }
 }

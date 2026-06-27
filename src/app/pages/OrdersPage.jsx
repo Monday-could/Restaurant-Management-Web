@@ -1,13 +1,26 @@
+import { useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useI18n } from "../../i18n/I18nContext.jsx";
 import { CustomerOrderHistory } from "../orders/CustomerOrderHistory.jsx";
 import { OrderTicket } from "../orders/OrderTicket.jsx";
 import { Icon } from "../ui/Icon.jsx";
 
+const HANDLED_PREVIEW_LIMIT = 16;
+
 function StaffMode({ orders, onStatusChange, onReady }) {
   const { t } = useI18n();
+  const [handledExpanded, setHandledExpanded] = useState(false);
   const pending = orders.filter((order) => order.status === "new");
-  const handled = orders.filter((order) => order.status !== "new");
+  const handled = useMemo(
+    () =>
+      orders
+        .filter((order) => order.status !== "new")
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [orders],
+  );
+  const hasMoreHandled = handled.length > HANDLED_PREVIEW_LIMIT;
+  const visibleHandled =
+    handledExpanded || !hasMoreHandled ? handled : handled.slice(0, HANDLED_PREVIEW_LIMIT);
 
   return (
     <section className="content-section page-section" aria-labelledby="staff-title">
@@ -20,7 +33,7 @@ function StaffMode({ orders, onStatusChange, onReady }) {
       <div className="staff-layout">
         <div>
           <h3 className="panel-title">{t("staff.waitingTitle")}</h3>
-          <div className="ticket-list">
+          <div className="ticket-list ticket-list--staff-grid">
             {pending.length ? (
               pending.map((order) => (
                 <OrderTicket key={order.id} order={order} hideReadyState>
@@ -44,9 +57,9 @@ function StaffMode({ orders, onStatusChange, onReady }) {
         </div>
         <div>
           <h3 className="panel-title">{t("staff.handledTitle")}</h3>
-          <div className="ticket-list">
+          <div className="ticket-list ticket-list--staff-grid">
             {handled.length ? (
-              handled.map((order) => (
+              visibleHandled.map((order) => (
                 <OrderTicket
                   key={order.id}
                   order={order}
@@ -60,6 +73,19 @@ function StaffMode({ orders, onStatusChange, onReady }) {
               </div>
             )}
           </div>
+          {hasMoreHandled ? (
+            <button
+              type="button"
+              className="secondary-cta small staff-handled-toggle"
+              aria-expanded={handledExpanded}
+              onClick={() => setHandledExpanded((open) => !open)}
+            >
+              <Icon name={handledExpanded ? "chevronUp" : "chevronDown"} />
+              {handledExpanded
+                ? t("staff.collapseHandled", { limit: HANDLED_PREVIEW_LIMIT })
+                : t("staff.expandHandled", { count: handled.length })}
+            </button>
+          ) : null}
         </div>
       </div>
     </section>
