@@ -2,6 +2,7 @@ import { Link, Navigate } from "react-router-dom";
 import { useI18n } from "../../i18n/I18nContext.jsx";
 import { CustomerOrderHistory } from "../orders/CustomerOrderHistory.jsx";
 import { OrderTicket } from "../orders/OrderTicket.jsx";
+import { Icon } from "../ui/Icon.jsx";
 
 function StaffMode({ orders, onStatusChange, onReady }) {
   const { t } = useI18n();
